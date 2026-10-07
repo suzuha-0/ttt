@@ -16,6 +16,11 @@
   --gain: #c42f28;        /* 日本式: 利益は赤 */
   --loss: #157a3a;        /* 損失は緑 */
   --warn: #a86200;
+  --c-jp: #3b63c4;
+  --c-us: #c4513b;
+  --c-fund: #2f9e8f;
+  --c-bond: #d98a1c;
+  --c-cash: #8a96a8;
   --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", sans-serif;
   --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -24,12 +29,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0e131a; --surface: #161c25; --sunken: #1d2430; --ink: #e4e8ee; --muted: #93a0b2;
     --line: #29323f; --accent: #8ea8ff; --accent-ink: #0e131a; --gain: #ff6e64; --loss: #4cc675; --warn: #f0b04a;
+    --c-jp: #6f93f0; --c-us: #ec7a63; --c-fund: #4cc2b1; --c-bond: #f0ac45; --c-cash: #7d899b;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e131a; --surface: #161c25; --sunken: #1d2430; --ink: #e4e8ee; --muted: #93a0b2;
   --line: #29323f; --accent: #8ea8ff; --accent-ink: #0e131a; --gain: #ff6e64; --loss: #4cc675; --warn: #f0b04a;
+  --c-jp: #6f93f0; --c-us: #ec7a63; --c-fund: #4cc2b1; --c-bond: #f0ac45; --c-cash: #7d899b;
   color-scheme: dark;
 }
 
@@ -53,7 +60,7 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .top-inner {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   padding-inline: 24px;
   display: flex;
@@ -90,7 +97,7 @@ body {
 .tab:focus-visible, button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 main {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   padding-inline: 24px;
   padding-block: 24px 64px;
@@ -99,7 +106,6 @@ main {
   .top-inner, main { padding-inline: 16px; }
 }
 .panel { display: grid; gap: 16px; }
-.panel[hidden] { display: none; }
 h2 {
   font-family: var(--font-display);
   font-size: 16px;
@@ -109,7 +115,6 @@ h2 {
 }
 .hint { color: var(--muted); margin: -8px 0 0; font-size: 13px; }
 
-/* banner */
 .banner {
   display: flex;
   align-items: center;
@@ -134,20 +139,24 @@ h2 {
   border-radius: 10px;
   overflow: hidden;
 }
-.tile { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; min-width: 0; }
+.tile { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; align-content: start; min-width: 0; }
 .tile .label { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; }
-.tile .value { font-family: var(--font-num); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .value { font-family: var(--font-num); font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .tile .sub { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
-.tile.lead .value { font-size: 26px; }
+.tile.lead .value { font-size: 25px; }
 
 .gain { color: var(--gain); }
 .loss { color: var(--loss); }
 
 /* allocation */
-.alloc { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--sunken); }
+.alloc { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--sunken); }
 .alloc span { height: 100%; }
 .alloc span + span { box-shadow: inset 2px 0 0 var(--surface); }
-.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; vertical-align: 1px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--muted); margin-top: -6px; }
+.legend b { color: var(--ink); font-weight: 500; font-family: var(--font-num); margin-left: 4px; }
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; }
+.k-jp { background: var(--c-jp); } .k-us { background: var(--c-us); } .k-fund { background: var(--c-fund); }
+.k-bond { background: var(--c-bond); } .k-cash { background: var(--c-cash); }
 
 /* tables */
 .table-wrap {
@@ -157,24 +166,35 @@ h2 {
   border-radius: 10px;
 }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 9px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th, td { padding: 8px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
 th { font-weight: 500; font-size: 12px; color: var(--muted); background: var(--sunken); letter-spacing: 0.02em; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: color-mix(in srgb, var(--sunken) 55%, transparent); }
+tr.group td {
+  background: var(--sunken);
+  font-size: 12px;
+  font-weight: 600;
+  padding-block: 6px;
+}
+tr.group td .num { font-weight: 500; }
 td.r, th.r { text-align: right; }
-td.memo { white-space: normal; min-width: 140px; color: var(--muted); }
+td.name { white-space: normal; min-width: 180px; max-width: 320px; }
+td.memo { white-space: normal; min-width: 140px; color: var(--muted); font-size: 13px; }
 td.empty { text-align: center; color: var(--muted); padding: 36px 16px; white-space: normal; }
+.unit { color: var(--muted); font-size: 11px; margin-left: 3px; font-family: var(--font-body); }
+.acct { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--sunken); color: var(--muted); white-space: nowrap; }
+.acct.nisa { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .side { font-weight: 600; font-size: 12px; padding: 1px 7px; border-radius: 4px; border: 1px solid currentColor; }
 .side.buy { color: var(--gain); }
 .side.sell { color: var(--loss); }
 .flag { color: var(--warn); font-size: 12px; margin-left: 6px; }
-.price-in { width: 104px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
-.yearly { max-width: 680px; }
+.price-in { width: 110px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
+.yearly { max-width: 720px; }
 
 /* forms */
 form.entry {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px;
   align-items: end;
   background: var(--surface);
@@ -185,7 +205,7 @@ form.entry {
 form.entry label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
 form.entry .wide { grid-column: span 2; }
 @media (max-width: 400px) { form.entry .wide { grid-column: auto; } }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 input, select {
   font: inherit;
   color: var(--ink);
@@ -216,6 +236,13 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .link.del { color: var(--gain); }
 .filter { max-width: 280px; }
 
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: grid; gap: 10px; min-width: 0; }
+.fx-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.fx-row label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); width: 150px; }
+.fx-row input { font-family: var(--font-num); text-align: right; }
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -223,11 +250,10 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   padding: 16px;
   display: grid;
   gap: 12px;
-  max-width: 680px;
+  max-width: 720px;
 }
 .card p { margin: 0; color: var(--muted); }
 
-/* toast + dialog */
 .toast {
   position: fixed;
   left: 50%;
@@ -293,27 +319,60 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   <!-- ダッシュボード -->
   <section class="panel" id="tab-dashboard">
     <div class="tiles">
-      <div class="tile lead"><span class="label">評価額</span><span class="value" id="t-market">¥0</span><span class="sub" id="t-cost">取得額 ¥0</span></div>
-      <div class="tile"><span class="label">含み損益</span><span class="value" id="t-unreal">¥0</span><span class="sub" id="t-unreal-pct">—</span></div>
+      <div class="tile lead"><span class="label">資産合計</span><span class="value" id="t-assets">¥0</span><span class="sub" id="t-assets-sub">保有商品 ¥0 ＋ 預り金 ¥0</span></div>
+      <div class="tile"><span class="label">評価損益</span><span class="value" id="t-unreal">¥0</span><span class="sub" id="t-unreal-pct">—</span></div>
       <div class="tile"><span class="label">実現損益（累計）</span><span class="value" id="t-real">¥0</span><span class="sub" id="t-real-n">売却 0回</span></div>
       <div class="tile"><span class="label">受取配当（累計・税引後）</span><span class="value" id="t-div">¥0</span><span class="sub" id="t-div-n">0件</span></div>
-      <div class="tile"><span class="label">トータル損益</span><span class="value" id="t-total">¥0</span><span class="sub">含み＋実現＋配当</span></div>
+      <div class="tile"><span class="label">トータル損益</span><span class="value" id="t-total">¥0</span><span class="sub">評価＋実現＋配当</span></div>
     </div>
 
-    <h2>保有銘柄</h2>
-    <p class="hint">現在値の欄に株価を入力すると、評価額と含み損益が計算されます。</p>
     <div class="alloc" id="alloc"></div>
+    <div class="legend" id="legend"></div>
+
+    <h2>保有商品</h2>
+    <p class="hint">現在値の欄に最新の価格を入れると評価額が更新されます。単位は欄に表示しています（投資信託は1万口あたり、外国債券は%）。</p>
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>コード</th><th>銘柄名</th><th class="r">保有株数</th><th class="r">平均取得単価</th>
+            <th>コード</th><th>銘柄</th><th>口座</th><th class="r">保有数量</th><th class="r">平均取得単価</th>
             <th class="r">取得額</th><th class="r">現在値</th><th class="r">評価額</th>
-            <th class="r">含み損益</th><th class="r">損益率</th><th class="r">比率</th>
+            <th class="r">評価損益</th><th class="r">損益率</th><th class="r">比率</th>
           </tr>
         </thead>
         <tbody id="holdings-body"></tbody>
       </table>
+    </div>
+
+    <div class="split">
+      <div class="stack">
+        <h2>預り金</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>内容</th><th>通貨</th><th class="r">残高</th><th class="r">円換算</th><th></th></tr></thead>
+            <tbody id="cash-body"></tbody>
+          </table>
+        </div>
+        <form class="entry" id="cash-form" autocomplete="off">
+          <label class="wide">内容<input type="text" id="cf-label" required placeholder="預り金（円）"></label>
+          <label>通貨
+            <select id="cf-ccy"><option>JPY</option><option>USD</option><option>EUR</option></select>
+          </label>
+          <label>残高<input type="number" id="cf-amount" required step="any"></label>
+          <div class="actions"><button type="submit" class="btn">追加</button></div>
+        </form>
+      </div>
+      <div class="stack">
+        <h2>為替レート</h2>
+        <div class="card">
+          <p>外貨建ての商品と外貨預り金の円換算に使います。</p>
+          <div class="fx-row">
+            <label>米ドル（円/USD）<input type="number" step="any" min="0" id="fx-USD" data-ccy="USD"></label>
+            <label>ユーロ（円/EUR）<input type="number" step="any" min="0" id="fx-EUR" data-ccy="EUR"></label>
+          </div>
+          <p id="fx-asof"></p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -329,17 +388,30 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
           <option value="sell">売り</option>
         </select>
       </label>
-      <label>証券コード<input type="text" name="code" id="tf-code" required placeholder="7203" list="code-list"></label>
-      <label>銘柄名<input type="text" name="sname" id="tf-sname" placeholder="トヨタ自動車"></label>
-      <label>株数<input type="number" name="qty" id="tf-qty" required min="0" step="any" placeholder="100"></label>
-      <label>約定単価<input type="number" name="price" id="tf-price" required min="0" step="any"></label>
-      <label>手数料<input type="number" name="fee" id="tf-fee" min="0" step="any" value="0"></label>
+      <label>種類
+        <select name="kind" id="tf-kind">
+          <option value="jp">国内株式</option>
+          <option value="us">米国株式</option>
+          <option value="fund">投資信託</option>
+          <option value="bond">外国債券</option>
+        </select>
+      </label>
+      <label>口座
+        <select name="account" id="tf-account"></select>
+      </label>
+      <label>コード<input type="text" name="code" id="tf-code" required placeholder="7203" list="code-list"></label>
+      <label class="wide">銘柄名<input type="text" name="sname" id="tf-sname" placeholder="トヨタ自動車"></label>
+      <label><span id="tf-qty-label">株数</span><input type="number" name="qty" id="tf-qty" required min="0" step="any"></label>
+      <label><span id="tf-price-label">約定単価（円）</span><input type="number" name="price" id="tf-price" min="0" step="any"></label>
+      <label>手数料（円）<input type="number" name="fee" id="tf-fee" min="0" step="any" value="0"></label>
+      <label id="tf-amount-wrap" hidden>受渡金額（円）<input type="number" name="amountJpy" id="tf-amount" min="0" step="any"></label>
       <label class="wide">メモ<input type="text" name="memo" id="tf-memo"></label>
       <div class="actions">
         <button type="submit" class="btn primary">保存</button>
         <button type="button" class="btn" id="trade-cancel" hidden>キャンセル</button>
       </div>
     </form>
+    <p class="hint" id="tf-help"></p>
     <datalist id="code-list"></datalist>
 
     <label class="filter"><input type="search" id="trade-filter" placeholder="コード・銘柄名で絞り込み"></label>
@@ -347,8 +419,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
       <table>
         <thead>
           <tr>
-            <th>約定日</th><th>売買</th><th>コード</th><th>銘柄名</th><th class="r">株数</th>
-            <th class="r">単価</th><th class="r">手数料</th><th class="r">受渡金額</th>
+            <th>約定日</th><th>売買</th><th>コード</th><th>銘柄</th><th>口座</th><th class="r">数量</th>
+            <th class="r">単価</th><th class="r">受渡金額（円）</th>
             <th class="r">実現損益</th><th>メモ</th><th></th>
           </tr>
         </thead>
@@ -363,8 +435,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
     <form class="entry" id="div-form" autocomplete="off">
       <input type="hidden" name="tid" id="df-tid">
       <label>入金日<input type="date" name="date" id="df-date" required></label>
-      <label>証券コード<input type="text" name="code" id="df-code" required list="code-list"></label>
-      <label>受取額（税引後）<input type="number" name="amount" id="df-amount" required min="0" step="any"></label>
+      <label>コード<input type="text" name="code" id="df-code" list="code-list" placeholder="空欄でも可"></label>
+      <label>受取額（円・税引後）<input type="number" name="amount" id="df-amount" required min="0" step="any"></label>
       <label class="wide">メモ<input type="text" name="memo" id="df-memo" placeholder="中間配当 など"></label>
       <div class="actions">
         <button type="submit" class="btn primary">保存</button>
@@ -373,7 +445,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
     </form>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>入金日</th><th>コード</th><th>銘柄名</th><th class="r">受取額</th><th>メモ</th><th></th></tr></thead>
+        <thead><tr><th>入金日</th><th>コード</th><th>銘柄</th><th class="r">受取額</th><th>メモ</th><th></th></tr></thead>
         <tbody id="dividends-body"></tbody>
       </table>
     </div>
@@ -382,7 +454,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   <!-- 年別 -->
   <section class="panel" id="tab-yearly" hidden>
     <h2>年別損益</h2>
-    <p class="hint">確定申告の確認用。実現損益は移動平均法で計算しています。</p>
+    <p class="hint">確定申告の確認用。実現損益は移動平均法で、口座ごとに計算しています。</p>
     <div class="table-wrap yearly">
       <table>
         <thead><tr><th>年</th><th class="r">実現損益</th><th class="r">受取配当</th><th class="r">合計</th><th class="r">売買回数</th></tr></thead>
@@ -395,6 +467,16 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   <section class="panel" id="tab-data" hidden>
     <h2>保存場所</h2>
     <div class="card"><p id="store-desc">確認中…</p></div>
+
+    <h2>取込前の実績</h2>
+    <div class="card">
+      <p id="opening-desc">証券会社の画面にある、これまでの実現損益の累計を入れておくと合計に含めます。</p>
+      <form class="fx-row" id="opening-form" autocomplete="off">
+        <label>時点<input type="date" id="op-date"></label>
+        <label>実現損益の累計（円）<input type="number" step="any" id="op-real"></label>
+        <div class="actions" style="align-self:end"><button type="submit" class="btn">保存</button></div>
+      </form>
+    </div>
 
     <h2>バックアップ</h2>
     <div class="card">
@@ -410,7 +492,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 
     <h2>リセット</h2>
     <div class="card">
-      <p>すべての売買・配当・現在値を削除します。元に戻せません。</p>
+      <p>すべての売買・配当・現在値・預り金を削除します。元に戻せません。</p>
       <div class="actions"><button class="btn danger" id="reset-all">全データを削除</button></div>
     </div>
   </section>
@@ -430,11 +512,23 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 <script>
 'use strict';
 
+/* ---------- 商品の種類 ---------- */
+// div: 「数量×単価÷div」で金額になる。投資信託は1万口あたり、外国債券は額面に対する%。
+const KINDS = {
+  jp:   { label: '国内株式', unit: '株', div: 1,     ccy: 'JPY', price: '円' },
+  us:   { label: '米国株式', unit: '株', div: 1,     ccy: 'USD', price: 'USD' },
+  fund: { label: '投資信託', unit: '口', div: 10000, ccy: 'JPY', price: '円/1万口' },
+  bond: { label: '外国債券', unit: '額面', div: 100, ccy: 'USD', price: '%' },
+};
+const KIND_ORDER = ['jp', 'us', 'fund', 'bond'];
+const ACCOUNTS = ['特定', '一般', 'NISA成長', 'NISAつみたて', '旧つみたてNISA'];
+
 /* ---------- 状態 ---------- */
-let state = { trades: [], dividends: [], prices: {}, names: {} };
+const emptyState = () => ({ trades: [], dividends: [], prices: {}, names: {}, inst: {}, fx: {}, fxAsOf: '', cash: [], opening: null });
+let state = emptyState();
 let sampleMode = false;
-let savedState = null;   // サンプル表示中に退避する本物のデータ
-let store = null;        // 保存先（db / local）
+let savedState = null;
+let store = null;
 let downloads = null;
 
 const $ = s => document.querySelector(s);
@@ -442,13 +536,19 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 
 /* ---------- 表示ユーティリティ ---------- */
 const yenFmt = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 });
-const decFmt = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 });
+const decFmt = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 4 });
+const dec2 = new Intl.NumberFormat('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const yen = n => '¥' + yenFmt.format(Math.round(n));
 const signed = n => (Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : '') + '¥' + yenFmt.format(Math.abs(Math.round(n)));
-const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '') + decFmt.format(Math.abs(n * 100)) + '%';
+const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '') + dec2.format(Math.abs(n * 100)) + '%';
 const tone = n => Math.round(n) > 0 ? 'gain' : Math.round(n) < 0 ? 'loss' : '';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const nameOf = code => state.names[code] || '';
+const isNum = v => typeof v === 'number' && isFinite(v);
+const instOf = code => state.inst[code] || { kind: 'jp' };
+const kindOf = code => KINDS[instOf(code).kind] ? instOf(code).kind : 'jp';
+const nameOf = code => (state.inst[code] && state.inst[code].name) || state.names[code] || '';
+const fxOf = ccy => ccy === 'JPY' ? 1 : (isNum(state.fx[ccy]) ? state.fx[ccy] : null);
+const acctTag = a => `<span class="acct ${String(a || '').includes('NISA') ? 'nisa' : ''}">${esc(a || '特定')}</span>`;
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -486,46 +586,62 @@ function storeError(e) {
   else toast('保存できませんでした。少し待ってからもう一度お試しください。');
 }
 
-/* ---------- 計算（移動平均法） ---------- */
+/* ---------- 計算（移動平均法・口座別） ---------- */
+// 円での受渡金額。外貨建ては記録した円金額を使う。
+function tradeJpy(t) {
+  if (isNum(t.amountJpy)) return t.amountJpy;
+  const base = t.qty * (t.price || 0) / KINDS[kindOf(t.code)].div;
+  return t.side === 'buy' ? base + (t.fee || 0) : base - (t.fee || 0);
+}
+
 function compute() {
   const sorted = [...state.trades].sort((a, b) => a.date.localeCompare(b.date) || (a.seq || 0) - (b.seq || 0));
   const pos = {};
   const realized = {};
   const over = {};
   for (const t of sorted) {
-    const p = pos[t.code] || (pos[t.code] = { qty: 0, cost: 0 });
+    const key = t.code + '|' + (t.account || '特定');
+    const p = pos[key] || (pos[key] = { code: t.code, account: t.account || '特定', qty: 0, cost: 0 });
     if (t.side === 'buy') {
       p.qty += t.qty;
-      p.cost += t.qty * t.price + t.fee;
+      p.cost += tradeJpy(t);
     } else {
       if (t.qty > p.qty + 1e-9) over[t.id] = true;
       const q = Math.min(t.qty, p.qty);
       const avg = p.qty > 0 ? p.cost / p.qty : 0;
-      realized[t.id] = t.qty * t.price - t.fee - avg * q;
+      realized[t.id] = tradeJpy(t) - avg * q;
       p.qty -= q;
       p.cost -= avg * q;
       if (p.qty < 1e-9) { p.qty = 0; p.cost = 0; }
     }
   }
-  const holdings = Object.entries(pos).filter(([, p]) => p.qty > 0).map(([code, p]) => {
-    const price = state.prices[code];
-    const has = typeof price === 'number' && isFinite(price);
-    const market = has ? p.qty * price : p.cost;
-    return { code, qty: p.qty, cost: p.cost, avg: p.cost / p.qty, price: has ? price : null, market, unreal: market - p.cost };
-  }).sort((a, b) => b.market - a.market);
-  return { holdings, realized, over };
+  const holdings = Object.values(pos).filter(p => p.qty > 0).map(p => {
+    const kind = kindOf(p.code);
+    const k = KINDS[kind];
+    const price = state.prices[p.code];
+    const fx = fxOf(instOf(p.code).ccy || k.ccy);
+    const priced = isNum(price) && fx !== null;
+    const market = priced ? p.qty * price / k.div * fx : p.cost;
+    return { ...p, kind, price: isNum(price) ? price : null, priced, market, unreal: market - p.cost, avg: p.cost / p.qty * k.div };
+  });
+  holdings.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.code.localeCompare(b.code) || ACCOUNTS.indexOf(a.account) - ACCOUNTS.indexOf(b.account));
+  const cash = state.cash.map(c => {
+    const fx = fxOf(c.ccy);
+    return { ...c, jpy: fx === null ? null : c.amount * fx };
+  });
+  return { holdings, realized, over, cash };
 }
 
 /* ---------- 描画 ---------- */
-const PALETTE = ['#3b63c4', '#d98a1c', '#2f9e8f', '#8a5cc2', '#c4513b', '#5a8f2e', '#c2478a', '#6b7a8f'];
-
 function render() {
   const c = compute();
   renderDashboard(c);
+  renderCash(c);
   renderTrades(c);
   renderDividends();
   renderYearly(c);
-  const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.names)]);
+  renderMetaInputs();
+  const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.inst), ...Object.keys(state.names)]);
   $('#code-list').innerHTML = [...codes].sort().map(k => `<option value="${esc(k)}">${esc(nameOf(k))}</option>`).join('');
   $('#sample-banner').hidden = !sampleMode;
 }
@@ -536,46 +652,99 @@ function setVal(sel, n) {
   el.className = 'value ' + tone(n);
 }
 
-function renderDashboard({ holdings, realized }) {
+function renderDashboard({ holdings, realized, cash }) {
   const market = holdings.reduce((s, h) => s + h.market, 0);
   const cost = holdings.reduce((s, h) => s + h.cost, 0);
+  const cashJpy = cash.reduce((s, c) => s + (c.jpy || 0), 0);
   const unreal = market - cost;
-  const real = Object.values(realized).reduce((s, v) => s + v, 0);
+  const openReal = state.opening && isNum(state.opening.realized) ? state.opening.realized : 0;
+  const real = Object.values(realized).reduce((s, v) => s + v, 0) + openReal;
   const div = state.dividends.reduce((s, d) => s + d.amount, 0);
 
-  $('#t-market').textContent = yen(market);
-  $('#t-cost').textContent = '取得額 ' + yen(cost);
+  $('#t-assets').textContent = yen(market + cashJpy);
+  $('#t-assets-sub').textContent = `保有商品 ${yen(market)} ＋ 預り金 ${yen(cashJpy)}`;
   setVal('#t-unreal', unreal);
-  $('#t-unreal-pct').textContent = cost ? pct(unreal / cost) : '—';
+  $('#t-unreal-pct').textContent = cost ? `${pct(unreal / cost)}（取得額 ${yen(cost)}）` : '—';
   setVal('#t-real', real);
-  $('#t-real-n').textContent = `売却 ${Object.keys(realized).length}回`;
+  $('#t-real-n').textContent = `売却 ${Object.keys(realized).length}回` + (openReal ? '・取込前の累計を含む' : '');
   setVal('#t-div', div);
   $('#t-div-n').textContent = `${state.dividends.length}件`;
   setVal('#t-total', unreal + real + div);
 
+  // 種類別の構成
+  const total = market + cashJpy;
+  const parts = KIND_ORDER.map(k => ({ k, label: KINDS[k].label, v: holdings.filter(h => h.kind === k).reduce((s, h) => s + h.market, 0) }))
+    .concat([{ k: 'cash', label: '預り金', v: cashJpy }]).filter(p => p.v > 0);
+  $('#alloc').innerHTML = total ? parts.map(p => `<span class="k-${p.k}" title="${p.label}" style="width:${p.v / total * 100}%"></span>`).join('') : '';
+  $('#legend').innerHTML = total ? parts.map(p => `<span><i class="sw k-${p.k}"></i>${p.label}<b>${yen(p.v)}</b>（${dec2.format(p.v / total * 100)}%）</span>`).join('') : '';
+
   const body = $('#holdings-body');
   if (!holdings.length) {
-    body.innerHTML = `<tr><td colspan="10" class="empty">
-      まだ保有銘柄がありません。<br>「売買履歴」タブで買いを記録すると、ここに一覧が出ます。
+    body.innerHTML = `<tr><td colspan="11" class="empty">
+      まだ保有商品がありません。<br>「売買履歴」タブで買いを記録すると、ここに一覧が出ます。
       ${sampleMode || state.trades.length ? '' : '<br><br><button class="btn" data-sample>サンプルデータで見てみる</button>'}
     </td></tr>`;
-    $('#alloc').innerHTML = '';
     return;
   }
-  body.innerHTML = holdings.map((h, i) => `<tr>
-    <td class="mono"><span class="sw" style="background:${PALETTE[i % PALETTE.length]}"></span>${esc(h.code)}</td>
-    <td>${esc(nameOf(h.code))}</td>
-    <td class="r num">${decFmt.format(h.qty)}</td>
-    <td class="r num">${decFmt.format(h.avg)}</td>
-    <td class="r num">${yen(h.cost)}</td>
-    <td class="r"><input class="price-in" type="number" step="any" min="0" inputmode="decimal" id="price-${esc(h.code)}" data-code="${esc(h.code)}" value="${h.price ?? ''}" placeholder="未入力" aria-label="${esc(h.code)} の現在値"></td>
-    <td class="r num">${yen(h.market)}</td>
-    <td class="r num ${h.price === null ? '' : tone(h.unreal)}">${h.price === null ? '—' : signed(h.unreal)}</td>
-    <td class="r num ${h.price === null ? '' : tone(h.unreal)}">${h.price === null ? '—' : pct(h.unreal / h.cost)}</td>
-    <td class="r num">${decFmt.format(market ? h.market / market * 100 : 0)}%</td>
+  let html = '';
+  let i = 0;
+  for (const kind of KIND_ORDER) {
+    const rows = holdings.filter(h => h.kind === kind);
+    if (!rows.length) continue;
+    const k = KINDS[kind];
+    const gm = rows.reduce((s, h) => s + h.market, 0);
+    const gc = rows.reduce((s, h) => s + h.cost, 0);
+    html += `<tr class="group"><td colspan="5"><i class="sw k-${kind}"></i>${k.label}</td>
+      <td class="r num">${yen(gc)}</td><td></td><td class="r num">${yen(gm)}</td>
+      <td class="r num ${tone(gm - gc)}">${signed(gm - gc)}</td><td class="r num ${tone(gm - gc)}">${gc ? pct((gm - gc) / gc) : ''}</td>
+      <td class="r num">${market ? dec2.format(gm / market * 100) + '%' : ''}</td></tr>`;
+    html += rows.map(h => {
+      const ccy = instOf(h.code).ccy || k.ccy;
+      return `<tr>
+      <td class="mono">${esc(h.code)}</td>
+      <td class="name">${esc(nameOf(h.code))}</td>
+      <td>${acctTag(h.account)}</td>
+      <td class="r num">${decFmt.format(h.qty)}<span class="unit">${ccy !== 'JPY' && kind === 'bond' ? ccy : k.unit}</span></td>
+      <td class="r num">${dec2.format(h.avg)}<span class="unit">${kind === 'fund' ? '円/1万口' : kind === 'bond' ? '円/額面100' : '円'}</span></td>
+      <td class="r num">${yen(h.cost)}</td>
+      <td class="r"><input class="price-in" type="number" step="any" min="0" inputmode="decimal" id="price-${i++}" data-code="${esc(h.code)}" value="${h.price ?? ''}" placeholder="${esc(k.price)}" title="単位: ${esc(kind === 'us' ? ccy : k.price)}" aria-label="${esc(nameOf(h.code) || h.code)} の現在値（${esc(k.price)}）"></td>
+      <td class="r num">${yen(h.market)}</td>
+      <td class="r num ${h.priced ? tone(h.unreal) : ''}">${h.priced ? signed(h.unreal) : '—'}</td>
+      <td class="r num ${h.priced ? tone(h.unreal) : ''}">${h.priced && h.cost ? pct(h.unreal / h.cost) : '—'}</td>
+      <td class="r num">${market ? dec2.format(h.market / market * 100) : 0}%</td>
+    </tr>`;
+    }).join('');
+  }
+  body.innerHTML = html;
+}
+
+function renderCash({ cash }) {
+  const body = $('#cash-body');
+  if (!cash.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">預り金はまだありません。下のフォームから追加できます。</td></tr>';
+    return;
+  }
+  body.innerHTML = cash.map(c => `<tr>
+    <td>${esc(c.label)}</td>
+    <td class="mono">${esc(c.ccy)}</td>
+    <td class="r"><input class="price-in" type="number" step="any" id="cash-${esc(c.id)}" data-cash="${esc(c.id)}" value="${c.amount}" aria-label="${esc(c.label)} の残高"></td>
+    <td class="r num">${c.jpy === null ? '—' : yen(c.jpy)}</td>
+    <td><button class="link del" data-del-cash="${esc(c.id)}">削除</button></td>
   </tr>`).join('');
-  $('#alloc').innerHTML = holdings.map((h, i) =>
-    `<span title="${esc(h.code)} ${esc(nameOf(h.code))}" style="width:${market ? h.market / market * 100 : 0}%;background:${PALETTE[i % PALETTE.length]}"></span>`).join('');
+}
+
+function renderMetaInputs() {
+  for (const ccy of ['USD', 'EUR']) {
+    const el = $('#fx-' + ccy);
+    if (document.activeElement !== el) el.value = isNum(state.fx[ccy]) ? state.fx[ccy] : '';
+  }
+  $('#fx-asof').textContent = state.fxAsOf ? `最終更新: ${state.fxAsOf}` : '';
+  const op = state.opening;
+  if (document.activeElement !== $('#op-real')) $('#op-real').value = op && isNum(op.realized) ? op.realized : '';
+  if (document.activeElement !== $('#op-date')) $('#op-date').value = op && op.date ? op.date : '';
+  $('#opening-desc').textContent = op && isNum(op.realized)
+    ? `${op.date || ''} 時点の実現損益の累計 ${signed(op.realized)} を合計に含めています。${op.note ? '（' + op.note + '）' : ''}`
+    : '証券会社の画面にある、これまでの実現損益の累計を入れておくと合計に含めます。';
 }
 
 function renderTrades({ realized, over }) {
@@ -589,19 +758,18 @@ function renderTrades({ realized, over }) {
     return;
   }
   body.innerHTML = rows.map(t => {
-    const gross = t.qty * t.price;
-    const settle = t.side === 'buy' ? gross + t.fee : gross - t.fee;
+    const k = KINDS[kindOf(t.code)];
     const r = realized[t.id];
     return `<tr>
       <td class="mono">${esc(t.date)}</td>
       <td><span class="side ${t.side}">${t.side === 'buy' ? '買' : '売'}</span></td>
       <td class="mono">${esc(t.code)}</td>
-      <td>${esc(nameOf(t.code))}</td>
-      <td class="r num">${decFmt.format(t.qty)}</td>
-      <td class="r num">${decFmt.format(t.price)}</td>
-      <td class="r num">${yen(t.fee)}</td>
-      <td class="r num">${yen(settle)}</td>
-      <td class="r num ${r === undefined ? '' : tone(r)}">${r === undefined ? '' : signed(r)}${over[t.id] ? '<span class="flag" title="売った株数が、その時点の保有株数を超えています">保有超過</span>' : ''}</td>
+      <td class="name">${esc(nameOf(t.code))}</td>
+      <td>${acctTag(t.account)}</td>
+      <td class="r num">${decFmt.format(t.qty)}<span class="unit">${k.unit}</span></td>
+      <td class="r num">${isNum(t.price) ? decFmt.format(t.price) + `<span class="unit">${esc(k.price)}</span>` : '—'}</td>
+      <td class="r num">${yen(tradeJpy(t))}</td>
+      <td class="r num ${r === undefined ? '' : tone(r)}">${r === undefined ? '' : signed(r)}${over[t.id] ? '<span class="flag" title="売った数量が、その時点の保有数量を超えています">保有超過</span>' : ''}</td>
       <td class="memo">${esc(t.memo)}</td>
       <td><button class="link" data-edit-trade="${esc(t.id)}">編集</button><button class="link del" data-del-trade="${esc(t.id)}">削除</button></td>
     </tr>`;
@@ -617,8 +785,8 @@ function renderDividends() {
   }
   body.innerHTML = rows.map(d => `<tr>
     <td class="mono">${esc(d.date)}</td>
-    <td class="mono">${esc(d.code)}</td>
-    <td>${esc(nameOf(d.code))}</td>
+    <td class="mono">${esc(d.code) || '—'}</td>
+    <td class="name">${esc(nameOf(d.code))}</td>
     <td class="r num">${yen(d.amount)}</td>
     <td class="memo">${esc(d.memo)}</td>
     <td><button class="link" data-edit-div="${esc(d.id)}">編集</button><button class="link del" data-del-div="${esc(d.id)}">削除</button></td>
@@ -631,8 +799,9 @@ function renderYearly({ realized }) {
   for (const t of state.trades) { const r = row(t.date); r.n++; if (t.id in realized) r.real += realized[t.id]; }
   for (const d of state.dividends) row(d.date).div += d.amount;
   const keys = Object.keys(years).sort().reverse();
+  const op = state.opening && isNum(state.opening.realized) ? state.opening : null;
   const body = $('#yearly-body');
-  if (!keys.length) {
+  if (!keys.length && !op) {
     body.innerHTML = '<tr><td colspan="5" class="empty">まだ記録がありません。</td></tr>';
     return;
   }
@@ -645,26 +814,41 @@ function renderYearly({ realized }) {
       <td class="r num ${tone(r.real + r.div)}">${signed(r.real + r.div)}</td>
       <td class="r num">${r.n}</td>
     </tr>`;
-  }).join('');
+  }).join('') + (op ? `<tr>
+      <td>取込前の累計<span class="unit">${esc(op.date || '')}時点</span></td>
+      <td class="r num ${tone(op.realized)}">${signed(op.realized)}</td>
+      <td class="r num">—</td>
+      <td class="r num ${tone(op.realized)}">${signed(op.realized)}</td>
+      <td class="r num">—</td>
+    </tr>` : '');
 }
 
 /* ---------- 保存先 ---------- */
-// クラウド（db）が使えればそこへ、使えなければこのブラウザ（localStorage）へ保存する。
+const metaBody = () => ({
+  prices: { ...state.prices }, names: { ...state.names }, inst: JSON.parse(JSON.stringify(state.inst)),
+  fx: { ...state.fx }, fxAsOf: state.fxAsOf || '', cash: state.cash.map(c => ({ ...c })), opening: state.opening,
+});
+const fromMeta = d => ({
+  prices: { ...(d.prices || {}) }, names: { ...(d.names || {}) }, inst: { ...(d.inst || {}) },
+  fx: { ...(d.fx || {}) }, fxAsOf: d.fxAsOf || '', cash: Array.isArray(d.cash) ? d.cash.map(c => ({ ...c })) : [], opening: d.opening || null,
+});
+
 function makeLocalStore() {
   const KEY = 'kabu-note-v1';
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const loaded = { trades: [], dividends: [], prices: {}, names: {}, ...JSON.parse(raw) };
+      const loaded = { ...emptyState(), ...JSON.parse(raw) };
       if (sampleMode) savedState = loaded; else state = loaded;
     }
   } catch (e) { /* 読めなくても空で始める */ }
   const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast('このブラウザに保存できませんでした。'); } };
+  const upsert = (arr, x) => { const i = arr.findIndex(y => y.id === x.id); i >= 0 ? arr[i] = x : arr.push(x); };
   return {
     kind: 'local',
-    async putTrade(t) { const i = state.trades.findIndex(x => x.id === t.id); i >= 0 ? state.trades[i] = t : state.trades.push(t); persist(); render(); },
+    async putTrade(t) { upsert(state.trades, t); persist(); render(); },
     async delTrade(id) { state.trades = state.trades.filter(x => x.id !== id); persist(); render(); },
-    async putDiv(d) { const i = state.dividends.findIndex(x => x.id === d.id); i >= 0 ? state.dividends[i] = d : state.dividends.push(d); persist(); render(); },
+    async putDiv(d) { upsert(state.dividends, d); persist(); render(); },
     async delDiv(id) { state.dividends = state.dividends.filter(x => x.id !== id); persist(); render(); },
     async putMeta() { persist(); render(); },
     async replaceAll(data) { state = data; persist(); render(); },
@@ -695,17 +879,13 @@ function makeDbStore(db, id) {
   const tradesCol = meta.collection('trades');
   const divCol = meta.collection('dividends');
   migrateOld(db, id, meta, tradesCol, divCol);
-  let real = { trades: [], dividends: [], prices: {}, names: {} };
+  let real = emptyState();
   const apply = () => { if (!sampleMode) { state = real; render(); } else { savedState = real; } };
 
   const fail = e => { console.error(e); $('#store-chip').textContent = '接続が切れました'; $('#store-chip').className = 'chip warn'; };
   tradesCol.onSnapshot(s => { real = { ...real, trades: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
   divCol.onSnapshot(s => { real = { ...real, dividends: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
-  meta.onSnapshot(s => {
-    const d = s.exists ? s.data() : {};
-    real = { ...real, prices: { ...(d.prices || {}) }, names: { ...(d.names || {}) } };
-    apply();
-  }, fail);
+  meta.onSnapshot(s => { real = { ...real, ...fromMeta(s.exists ? s.data() : {}) }; apply(); }, fail);
 
   // 同じドキュメントへの書き込みは1つずつ
   let metaChain = Promise.resolve();
@@ -717,8 +897,8 @@ function makeDbStore(db, id) {
     putDiv: d => divCol.doc(d.id).set(strip(d)),
     delDiv: id => divCol.doc(id).delete(),
     putMeta() {
-      const body = { prices: { ...state.prices }, names: { ...state.names } };
-      metaChain = metaChain.then(() => meta.set(body));
+      const body = metaBody();
+      metaChain = metaChain.catch(() => {}).then(() => meta.set(body));
       return metaChain;
     },
     async replaceAll(data) {
@@ -726,7 +906,11 @@ function makeDbStore(db, id) {
       for (const d of real.dividends) await divCol.doc(d.id).delete();
       for (const t of data.trades) await tradesCol.doc(t.id).set(strip(t));
       for (const d of data.dividends) await divCol.doc(d.id).set(strip(d));
-      metaChain = metaChain.then(() => meta.set({ prices: data.prices, names: data.names }));
+      const prev = state;
+      state = data;
+      const body = metaBody();
+      state = prev;
+      metaChain = metaChain.catch(() => {}).then(() => meta.set(body));
       await metaChain;
     },
   };
@@ -758,7 +942,7 @@ function showTab(name) {
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
-/* ---------- 現在値 ---------- */
+/* ---------- 現在値・為替・預り金 ---------- */
 $('#holdings-body').addEventListener('change', e => {
   const input = e.target.closest('.price-in');
   if (!input) return;
@@ -770,38 +954,115 @@ $('#holdings-body').addEventListener('change', e => {
 });
 $('#holdings-body').addEventListener('click', e => { if (e.target.closest('[data-sample]')) startSample(); });
 
+document.querySelectorAll('[data-ccy]').forEach(el => el.addEventListener('change', () => {
+  const v = parseFloat(el.value);
+  if (isNaN(v)) delete state.fx[el.dataset.ccy];
+  else state.fx[el.dataset.ccy] = v;
+  state.fxAsOf = today();
+  render();
+  if (!sampleMode) guard(() => store.putMeta());
+}));
+
+$('#cash-body').addEventListener('change', e => {
+  const input = e.target.closest('[data-cash]');
+  if (!input) return;
+  const c = state.cash.find(x => x.id === input.dataset.cash);
+  const v = parseFloat(input.value);
+  if (!c || isNaN(v)) return;
+  c.amount = v;
+  render();
+  guard(() => store.putMeta());
+});
+$('#cash-body').addEventListener('click', async e => {
+  const id = e.target.dataset.delCash;
+  if (!id) return;
+  const c = state.cash.find(x => x.id === id);
+  if (!await ask(`預り金「${c.label}」を削除しますか？`)) return;
+  state.cash = state.cash.filter(x => x.id !== id);
+  render();
+  guard(() => store.putMeta());
+});
+$('#cash-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const c = { id: uid(), label: $('#cf-label').value.trim(), ccy: $('#cf-ccy').value, amount: parseFloat($('#cf-amount').value) };
+  if (sampleMode) { toast('サンプル表示中は保存できません。'); return; }
+  state.cash.push(c);
+  render();
+  if (await guard(() => store.putMeta())) { $('#cash-form').reset(); toast('預り金を追加しました'); }
+});
+
+$('#opening-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = parseFloat($('#op-real').value);
+  state.opening = isNaN(v) ? null : { ...(state.opening || {}), date: $('#op-date').value || today(), realized: v };
+  render();
+  if (await guard(() => store.putMeta())) toast('保存しました');
+});
+
 /* ---------- 売買フォーム ---------- */
 const tf = $('#trade-form').elements;
+tf.account.innerHTML = ACCOUNTS.map(a => `<option>${a}</option>`).join('');
+
+function syncKindFields() {
+  const kind = tf.kind.value;
+  const k = KINDS[kind];
+  const foreign = k.ccy !== 'JPY';
+  $('#tf-qty-label').textContent = kind === 'bond' ? '額面（USD）' : kind === 'fund' ? '口数' : '株数';
+  $('#tf-price-label').textContent = `約定単価（${k.price}）`;
+  $('#tf-amount-wrap').hidden = !foreign;
+  tf.amountJpy.required = foreign;
+  tf.price.required = !foreign;
+  $('#tf-help').textContent = kind === 'fund' ? '投資信託の単価は基準価額（1万口あたりの円）です。'
+    : kind === 'bond' ? '外国債券は額面と価格（%）を入れ、実際に払った円の金額を受渡金額に入れてください。価格が分からなければ空欄で構いません。'
+    : kind === 'us' ? '米国株式は単価をドルで入れ、実際に払った（受け取った）円の金額を受渡金額に入れてください。'
+    : '';
+}
+tf.kind.addEventListener('change', syncKindFields);
+
 function resetTradeForm() {
   $('#trade-form').reset();
   tf.tid.value = '';
   tf.date.value = today();
+  tf.account.value = '特定';
+  syncKindFields();
   $('#trade-title').textContent = '売買を記録';
   $('#trade-cancel').hidden = true;
 }
 tf.code.addEventListener('change', () => {
-  const n = nameOf(tf.code.value.trim());
+  const code = tf.code.value.trim();
+  const n = nameOf(code);
   if (n && !tf.sname.value) tf.sname.value = n;
+  if (state.inst[code]) { tf.kind.value = kindOf(code); syncKindFields(); }
 });
 $('#trade-form').addEventListener('submit', async e => {
   e.preventDefault();
   const code = tf.code.value.trim();
+  const kind = tf.kind.value;
   const prev = state.trades.find(t => t.id === tf.tid.value);
+  const price = parseFloat(tf.price.value);
+  const amount = parseFloat(tf.amountJpy.value);
   const trade = {
     id: tf.tid.value || uid(),
     seq: prev ? prev.seq : Date.now(),
     date: tf.date.value,
     side: tf.side.value,
     code,
+    account: tf.account.value,
     qty: parseFloat(tf.qty.value),
-    price: parseFloat(tf.price.value),
+    price: isNaN(price) ? null : price,
     fee: parseFloat(tf.fee.value) || 0,
     memo: tf.memo.value.trim(),
   };
+  if (KINDS[kind].ccy !== 'JPY' && !isNaN(amount)) trade.amountJpy = amount;
   const sname = tf.sname.value.trim();
+  const inst = state.inst[code] || {};
+  const instChanged = inst.kind !== kind || (sname && inst.name !== sname);
   const ok = await guard(async () => {
     await store.putTrade(trade);
-    if (sname && state.names[code] !== sname) { state.names[code] = sname; await store.putMeta(); }
+    if (instChanged) {
+      state.inst[code] = { ...inst, kind, name: sname || inst.name || nameOf(code) };
+      await store.putMeta();
+    }
   });
   if (ok) { toast(prev ? '売買を更新しました' : '売買を記録しました'); resetTradeForm(); tf.date.focus(); }
 });
@@ -811,13 +1072,16 @@ $('#trades-body').addEventListener('click', async e => {
   if (ed) {
     const t = state.trades.find(x => x.id === ed);
     tf.tid.value = t.id; tf.date.value = t.date; tf.side.value = t.side; tf.code.value = t.code;
-    tf.sname.value = nameOf(t.code); tf.qty.value = t.qty; tf.price.value = t.price; tf.fee.value = t.fee; tf.memo.value = t.memo || '';
+    tf.kind.value = kindOf(t.code); tf.account.value = t.account || '特定';
+    tf.sname.value = nameOf(t.code); tf.qty.value = t.qty; tf.price.value = isNum(t.price) ? t.price : '';
+    tf.fee.value = t.fee || 0; tf.amountJpy.value = isNum(t.amountJpy) ? t.amountJpy : ''; tf.memo.value = t.memo || '';
+    syncKindFields();
     $('#trade-title').textContent = '売買を編集';
     $('#trade-cancel').hidden = false;
     $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else if (del) {
     const t = state.trades.find(x => x.id === del);
-    if (await ask(`${t.date} の ${t.code} ${t.side === 'buy' ? '買い' : '売り'} ${decFmt.format(t.qty)}株 を削除しますか？`)) {
+    if (await ask(`${t.date} の ${nameOf(t.code) || t.code} ${t.side === 'buy' ? '買い' : '売り'} ${decFmt.format(t.qty)}${KINDS[kindOf(t.code)].unit} を削除しますか？`)) {
       if (await guard(() => store.delTrade(del))) toast('削除しました');
     }
   }
@@ -849,7 +1113,7 @@ $('#dividends-body').addEventListener('click', async e => {
     $('#div-cancel').hidden = false;
   } else if (del) {
     const d = state.dividends.find(x => x.id === del);
-    if (await ask(`${d.date} の ${d.code} の配当 ${yen(d.amount)} を削除しますか？`)) {
+    if (await ask(`${d.date} の配当 ${yen(d.amount)} を削除しますか？`)) {
       if (await guard(() => store.delDiv(del))) toast('削除しました');
     }
   }
@@ -858,21 +1122,27 @@ $('#dividends-body').addEventListener('click', async e => {
 /* ---------- サンプル ---------- */
 function sampleData() {
   const y = new Date().getFullYear();
-  const t = (date, side, code, qty, price, fee, memo, seq) => ({ id: 'sample' + seq, seq, date, side, code, qty, price, fee, memo });
+  const t = (date, side, code, account, qty, price, memo, seq, amountJpy) => ({ id: 'sample' + seq, seq, date, side, code, account, qty, price, fee: 0, memo, ...(amountJpy ? { amountJpy } : {}) });
   return {
+    ...emptyState(),
     trades: [
-      t(`${y - 1}-04-08`, 'buy', '7203', 100, 2650, 0, '', 1),
-      t(`${y - 1}-09-12`, 'buy', '7203', 100, 2890, 0, '押し目で追加', 2),
-      t(`${y - 1}-06-03`, 'buy', '8306', 300, 1580, 0, '', 3),
-      t(`${y}-02-14`, 'sell', '8306', 100, 1920, 0, '一部利確', 4),
-      t(`${y}-03-02`, 'buy', '9432', 1000, 158, 0, '', 5),
+      t(`${y - 1}-04-08`, 'buy', '7203', '特定', 100, 2650, '', 1),
+      t(`${y - 1}-09-12`, 'buy', '7203', '特定', 100, 2890, '押し目で追加', 2),
+      t(`${y - 1}-06-03`, 'buy', '8306', 'NISA成長', 300, 1580, '', 3),
+      t(`${y}-02-14`, 'sell', '8306', 'NISA成長', 100, 1920, '一部利確', 4),
+      t(`${y}-01-10`, 'buy', 'sample-fund', 'NISAつみたて', 300000, 30000, '毎月積立', 5),
     ],
     dividends: [
       { id: 'sampled1', date: `${y - 1}-12-05`, code: '8306', amount: 4780, memo: '中間配当' },
       { id: 'sampled2', date: `${y}-06-02`, code: '7203', amount: 7170, memo: '期末配当' },
     ],
-    prices: { '7203': 2955, '8306': 1865, '9432': 151 },
-    names: { '7203': 'トヨタ自動車', '8306': '三菱UFJフィナンシャル・グループ', '9432': '日本電信電話' },
+    prices: { '7203': 2955, '8306': 1865, 'sample-fund': 33200 },
+    inst: {
+      '7203': { kind: 'jp', name: 'トヨタ自動車' },
+      '8306': { kind: 'jp', name: '三菱UFJフィナンシャル・グループ' },
+      'sample-fund': { kind: 'fund', name: '全世界株式インデックス（例）' },
+    },
+    cash: [{ id: 'samplec1', label: '預り金', ccy: 'JPY', amount: 250000 }],
   };
 }
 function startSample() {
@@ -883,7 +1153,7 @@ function startSample() {
 }
 $('#sample-close').addEventListener('click', () => {
   sampleMode = false;
-  state = savedState || { trades: [], dividends: [], prices: {}, names: {} };
+  state = savedState || emptyState();
   savedState = null;
   render();
 });
@@ -900,16 +1170,15 @@ async function saveFile(filename, data) {
   }
 }
 $('#export-json').addEventListener('click', () => {
-  const { trades, dividends, prices, names } = state;
-  saveFile(`kabu-note-${today()}.json`, JSON.stringify({ trades, dividends, prices, names }, null, 2));
+  saveFile(`kabu-note-${today()}.json`, JSON.stringify({ trades: state.trades, dividends: state.dividends, ...metaBody() }, null, 2));
 });
 $('#export-csv').addEventListener('click', () => {
   const { realized } = compute();
   const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const head = ['約定日', '売買', 'コード', '銘柄名', '株数', '単価', '手数料', '実現損益', 'メモ'];
+  const head = ['約定日', '売買', '種類', 'コード', '銘柄名', '口座', '数量', '単価', '手数料', '受渡金額(円)', '実現損益', 'メモ'];
   const lines = [...state.trades].sort((a, b) => a.date.localeCompare(b.date) || (a.seq || 0) - (b.seq || 0))
-    .map(t => [t.date, t.side === 'buy' ? '買' : '売', t.code, nameOf(t.code), t.qty, t.price, t.fee,
-      t.id in realized ? Math.round(realized[t.id]) : '', t.memo].map(cell).join(','));
+    .map(t => [t.date, t.side === 'buy' ? '買' : '売', KINDS[kindOf(t.code)].label, t.code, nameOf(t.code), t.account || '特定', t.qty, t.price ?? '', t.fee,
+      Math.round(tradeJpy(t)), t.id in realized ? Math.round(realized[t.id]) : '', t.memo].map(cell).join(','));
   // Excelで文字化けしないようBOMを付ける
   saveFile(`kabu-trades-${today()}.csv`, '﻿' + [head.map(cell).join(','), ...lines].join('\r\n'));
 });
@@ -926,18 +1195,19 @@ $('#import-json').addEventListener('change', async e => {
     return;
   }
   if (!await ask(`売買 ${data.trades.length}件・配当 ${data.dividends.length}件 を読み込み、いまの記録と置き換えますか？`, '置き換える')) return;
+  const safeId = v => String(v || '').replace(/[^A-Za-z0-9_-]/g, '') || uid();
   const clean = {
-    trades: data.trades.map((t, i) => ({ ...t, id: String(t.id || uid()).replace(/[^A-Za-z0-9_-]/g, '') || uid(), seq: t.seq || i + 1 })),
-    dividends: data.dividends.map(d => ({ ...d, id: String(d.id || uid()).replace(/[^A-Za-z0-9_-]/g, '') || uid() })),
-    prices: data.prices || {},
-    names: data.names || {},
+    ...emptyState(),
+    ...fromMeta(data),
+    trades: data.trades.map((t, i) => ({ ...t, id: safeId(t.id), seq: t.seq || i + 1 })),
+    dividends: data.dividends.map(d => ({ ...d, id: safeId(d.id) })),
   };
   toast('読み込み中…');
   if (await guard(() => store.replaceAll(clean))) toast('読み込みました');
 });
 $('#reset-all').addEventListener('click', async () => {
   if (!await ask('すべての記録を削除します。元に戻せません。よろしいですか？', 'すべて削除')) return;
-  if (await guard(() => store.replaceAll({ trades: [], dividends: [], prices: {}, names: {} }))) toast('すべて削除しました');
+  if (await guard(() => store.replaceAll(emptyState()))) toast('すべて削除しました');
 });
 
 /* ---------- 起動 ---------- */
