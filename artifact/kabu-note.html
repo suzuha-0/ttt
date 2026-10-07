@@ -671,10 +671,30 @@ function makeLocalStore() {
   };
 }
 
+// 記録は portfolio/main 以下に置く（読み書きはオーナー本人だけに制限）。
+// 旧版は data/users/<id>/portfolio に保存していたので、あれば一度だけ移す。
+async function migrateOld(db, id, meta, tradesCol, divCol) {
+  if (!id) return;
+  try {
+    const old = db.doc(`data/users/${id}/portfolio`);
+    const [ot, od, om, nt] = await Promise.all([old.collection('trades').get(), old.collection('dividends').get(), old.get(), tradesCol.limit(1).get()]);
+    if (ot.empty && od.empty) return;
+    if (nt.empty) {
+      for (const d of ot.docs) await tradesCol.doc(d.id).set({ ...d.data() });
+      for (const d of od.docs) await divCol.doc(d.id).set({ ...d.data() });
+      if (om.exists) await meta.set({ ...om.data() });
+    }
+    for (const d of ot.docs) await old.collection('trades').doc(d.id).delete();
+    for (const d of od.docs) await old.collection('dividends').doc(d.id).delete();
+    await old.delete();
+  } catch (e) { console.error(e); }
+}
+
 function makeDbStore(db, id) {
-  const meta = db.doc(`data/users/${id}/portfolio`);
+  const meta = db.doc('portfolio/main');
   const tradesCol = meta.collection('trades');
   const divCol = meta.collection('dividends');
+  migrateOld(db, id, meta, tradesCol, divCol);
   let real = { trades: [], dividends: [], prices: {}, names: {} };
   const apply = () => { if (!sampleMode) { state = real; render(); } else { savedState = real; } };
 
@@ -934,7 +954,7 @@ render();
   $('#dl-note').hidden = !!dl;
   ['#export-json', '#export-csv'].forEach(s => { $(s).disabled = !dl; });
   const id = user ? await user.id() : null;
-  store = db && id ? makeDbStore(db, id) : makeLocalStore();
+  store = db ? makeDbStore(db, id) : makeLocalStore();
   describeStore();
   render();
 })();
