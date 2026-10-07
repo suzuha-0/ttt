@@ -1,0 +1,941 @@
+<title>株ノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@700&display=swap">
+<style>
+/* Layout: sticky header with tabs; a dense desk-style working area — summary tiles above, ledger tables below. */
+:root {
+  --bg: #f2f4f8;
+  --surface: #ffffff;
+  --sunken: #e9edf3;
+  --ink: #17202e;
+  --muted: #5d6a7c;
+  --line: #dbe1e9;
+  --accent: #24408e;      /* 藍 */
+  --accent-ink: #ffffff;
+  --gain: #c42f28;        /* 日本式: 利益は赤 */
+  --loss: #157a3a;        /* 損失は緑 */
+  --warn: #a86200;
+  --font-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  --font-body: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e131a; --surface: #161c25; --sunken: #1d2430; --ink: #e4e8ee; --muted: #93a0b2;
+    --line: #29323f; --accent: #8ea8ff; --accent-ink: #0e131a; --gain: #ff6e64; --loss: #4cc675; --warn: #f0b04a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e131a; --surface: #161c25; --sunken: #1d2430; --ink: #e4e8ee; --muted: #93a0b2;
+  --line: #29323f; --accent: #8ea8ff; --accent-ink: #0e131a; --gain: #ff6e64; --loss: #4cc675; --warn: #f0b04a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.num, .mono { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* header */
+.top {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.top-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-inline: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px 28px;
+  flex-wrap: wrap;
+  min-height: 56px;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-family: var(--font-display); font-size: 20px; margin: 0; letter-spacing: 0.04em; }
+.chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chip.on { color: var(--accent); border-color: var(--accent); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; margin-inline: -4px; }
+.tab {
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  padding: 16px 12px 14px;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab:focus-visible, button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-inline: 24px;
+  padding-block: 24px 64px;
+}
+@media (max-width: 520px) {
+  .top-inner, main { padding-inline: 16px; }
+}
+.panel { display: grid; gap: 16px; }
+.panel[hidden] { display: none; }
+h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: 8px 0 0;
+  letter-spacing: 0.03em;
+  text-wrap: balance;
+}
+.hint { color: var(--muted); margin: -8px 0 0; font-size: 13px; }
+
+/* banner */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px dashed var(--warn);
+  color: var(--warn);
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* tiles */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tile { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; min-width: 0; }
+.tile .label { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; }
+.tile .value { font-family: var(--font-num); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .sub { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
+.tile.lead .value { font-size: 26px; }
+
+.gain { color: var(--gain); }
+.loss { color: var(--loss); }
+
+/* allocation */
+.alloc { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--sunken); }
+.alloc span { height: 100%; }
+.alloc span + span { box-shadow: inset 2px 0 0 var(--surface); }
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; vertical-align: 1px; }
+
+/* tables */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 9px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; font-size: 12px; color: var(--muted); background: var(--sunken); letter-spacing: 0.02em; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: color-mix(in srgb, var(--sunken) 55%, transparent); }
+td.r, th.r { text-align: right; }
+td.memo { white-space: normal; min-width: 140px; color: var(--muted); }
+td.empty { text-align: center; color: var(--muted); padding: 36px 16px; white-space: normal; }
+.side { font-weight: 600; font-size: 12px; padding: 1px 7px; border-radius: 4px; border: 1px solid currentColor; }
+.side.buy { color: var(--gain); }
+.side.sell { color: var(--loss); }
+.flag { color: var(--warn); font-size: 12px; margin-left: 6px; }
+.price-in { width: 104px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
+.yearly { max-width: 680px; }
+
+/* forms */
+form.entry {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+form.entry label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+form.entry .wide { grid-column: span 2; }
+@media (max-width: 400px) { form.entry .wide { grid-column: auto; } }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+input, select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+  width: 100%;
+  min-width: 0;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.btn, button.btn {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.danger { color: var(--gain); border-color: var(--gain); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.link { border: 0; background: none; font: inherit; font-size: 13px; color: var(--accent); cursor: pointer; padding: 2px 6px; }
+.link.del { color: var(--gain); }
+.filter { max-width: 280px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+}
+.card p { margin: 0; color: var(--muted); }
+
+/* toast + dialog */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  max-width: calc(100% - 32px);
+  z-index: 20;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 40%, transparent);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 30;
+}
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  display: grid;
+  gap: 16px;
+}
+.dialog p { margin: 0; }
+.dialog .actions { justify-content: flex-end; }
+@media (prefers-reduced-motion: no-preference) {
+  .toast { animation: rise 0.18s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translate(-50%, 6px); } }
+}
+</style>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <h1>株ノート</h1>
+      <span class="chip" id="store-chip">読み込み中…</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="dashboard" aria-selected="true">ダッシュボード</button>
+      <button class="tab" role="tab" data-tab="trades" aria-selected="false">売買履歴</button>
+      <button class="tab" role="tab" data-tab="dividends" aria-selected="false">配当</button>
+      <button class="tab" role="tab" data-tab="yearly" aria-selected="false">年別損益</button>
+      <button class="tab" role="tab" data-tab="data" aria-selected="false">データ</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="banner" id="sample-banner" hidden>
+    <span>サンプルデータを表示中です（あなたの記録ではありません。保存もされません）。</span>
+    <button class="btn" id="sample-close">サンプルを閉じる</button>
+  </div>
+
+  <!-- ダッシュボード -->
+  <section class="panel" id="tab-dashboard">
+    <div class="tiles">
+      <div class="tile lead"><span class="label">評価額</span><span class="value" id="t-market">¥0</span><span class="sub" id="t-cost">取得額 ¥0</span></div>
+      <div class="tile"><span class="label">含み損益</span><span class="value" id="t-unreal">¥0</span><span class="sub" id="t-unreal-pct">—</span></div>
+      <div class="tile"><span class="label">実現損益（累計）</span><span class="value" id="t-real">¥0</span><span class="sub" id="t-real-n">売却 0回</span></div>
+      <div class="tile"><span class="label">受取配当（累計・税引後）</span><span class="value" id="t-div">¥0</span><span class="sub" id="t-div-n">0件</span></div>
+      <div class="tile"><span class="label">トータル損益</span><span class="value" id="t-total">¥0</span><span class="sub">含み＋実現＋配当</span></div>
+    </div>
+
+    <h2>保有銘柄</h2>
+    <p class="hint">現在値の欄に株価を入力すると、評価額と含み損益が計算されます。</p>
+    <div class="alloc" id="alloc"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>コード</th><th>銘柄名</th><th class="r">保有株数</th><th class="r">平均取得単価</th>
+            <th class="r">取得額</th><th class="r">現在値</th><th class="r">評価額</th>
+            <th class="r">含み損益</th><th class="r">損益率</th><th class="r">比率</th>
+          </tr>
+        </thead>
+        <tbody id="holdings-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 売買履歴 -->
+  <section class="panel" id="tab-trades" hidden>
+    <h2 id="trade-title">売買を記録</h2>
+    <form class="entry" id="trade-form" autocomplete="off">
+      <input type="hidden" name="tid" id="tf-tid">
+      <label>約定日<input type="date" name="date" id="tf-date" required></label>
+      <label>売買
+        <select name="side" id="tf-side">
+          <option value="buy">買い</option>
+          <option value="sell">売り</option>
+        </select>
+      </label>
+      <label>証券コード<input type="text" name="code" id="tf-code" required placeholder="7203" list="code-list"></label>
+      <label>銘柄名<input type="text" name="sname" id="tf-sname" placeholder="トヨタ自動車"></label>
+      <label>株数<input type="number" name="qty" id="tf-qty" required min="0" step="any" placeholder="100"></label>
+      <label>約定単価<input type="number" name="price" id="tf-price" required min="0" step="any"></label>
+      <label>手数料<input type="number" name="fee" id="tf-fee" min="0" step="any" value="0"></label>
+      <label class="wide">メモ<input type="text" name="memo" id="tf-memo"></label>
+      <div class="actions">
+        <button type="submit" class="btn primary">保存</button>
+        <button type="button" class="btn" id="trade-cancel" hidden>キャンセル</button>
+      </div>
+    </form>
+    <datalist id="code-list"></datalist>
+
+    <label class="filter"><input type="search" id="trade-filter" placeholder="コード・銘柄名で絞り込み"></label>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>約定日</th><th>売買</th><th>コード</th><th>銘柄名</th><th class="r">株数</th>
+            <th class="r">単価</th><th class="r">手数料</th><th class="r">受渡金額</th>
+            <th class="r">実現損益</th><th>メモ</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="trades-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 配当 -->
+  <section class="panel" id="tab-dividends" hidden>
+    <h2 id="div-title">配当を記録</h2>
+    <form class="entry" id="div-form" autocomplete="off">
+      <input type="hidden" name="tid" id="df-tid">
+      <label>入金日<input type="date" name="date" id="df-date" required></label>
+      <label>証券コード<input type="text" name="code" id="df-code" required list="code-list"></label>
+      <label>受取額（税引後）<input type="number" name="amount" id="df-amount" required min="0" step="any"></label>
+      <label class="wide">メモ<input type="text" name="memo" id="df-memo" placeholder="中間配当 など"></label>
+      <div class="actions">
+        <button type="submit" class="btn primary">保存</button>
+        <button type="button" class="btn" id="div-cancel" hidden>キャンセル</button>
+      </div>
+    </form>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>入金日</th><th>コード</th><th>銘柄名</th><th class="r">受取額</th><th>メモ</th><th></th></tr></thead>
+        <tbody id="dividends-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 年別 -->
+  <section class="panel" id="tab-yearly" hidden>
+    <h2>年別損益</h2>
+    <p class="hint">確定申告の確認用。実現損益は移動平均法で計算しています。</p>
+    <div class="table-wrap yearly">
+      <table>
+        <thead><tr><th>年</th><th class="r">実現損益</th><th class="r">受取配当</th><th class="r">合計</th><th class="r">売買回数</th></tr></thead>
+        <tbody id="yearly-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- データ -->
+  <section class="panel" id="tab-data" hidden>
+    <h2>保存場所</h2>
+    <div class="card"><p id="store-desc">確認中…</p></div>
+
+    <h2>バックアップ</h2>
+    <div class="card">
+      <p>記録をファイルに保存したり、保存したファイルから戻したりできます。</p>
+      <div class="actions">
+        <button class="btn primary" id="export-json">JSONで保存</button>
+        <label class="btn" for="import-json">JSONから読み込む</label>
+        <input type="file" id="import-json" accept="application/json,.json" hidden>
+        <button class="btn" id="export-csv">売買履歴をCSVで保存</button>
+      </div>
+      <p id="dl-note" hidden>この画面ではファイルの保存が使えません。</p>
+    </div>
+
+    <h2>リセット</h2>
+    <div class="card">
+      <p>すべての売買・配当・現在値を削除します。元に戻せません。</p>
+      <div class="actions"><button class="btn danger" id="reset-all">全データを削除</button></div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="confirm" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
+    <p id="confirm-msg"></p>
+    <div class="actions">
+      <button class="btn" id="confirm-no">キャンセル</button>
+      <button class="btn danger" id="confirm-yes">削除する</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+
+/* ---------- 状態 ---------- */
+let state = { trades: [], dividends: [], prices: {}, names: {} };
+let sampleMode = false;
+let savedState = null;   // サンプル表示中に退避する本物のデータ
+let store = null;        // 保存先（db / local）
+let downloads = null;
+
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* ---------- 表示ユーティリティ ---------- */
+const yenFmt = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 });
+const decFmt = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 });
+const yen = n => '¥' + yenFmt.format(Math.round(n));
+const signed = n => (Math.round(n) > 0 ? '+' : Math.round(n) < 0 ? '−' : '') + '¥' + yenFmt.format(Math.abs(Math.round(n)));
+const pct = n => (n > 0 ? '+' : n < 0 ? '−' : '') + decFmt.format(Math.abs(n * 100)) + '%';
+const tone = n => Math.round(n) > 0 ? 'gain' : Math.round(n) < 0 ? 'loss' : '';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nameOf = code => state.names[code] || '';
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+}
+
+function ask(msg, yesLabel = '削除する') {
+  return new Promise(resolve => {
+    $('#confirm-msg').textContent = msg;
+    $('#confirm-yes').textContent = yesLabel;
+    $('#confirm').hidden = false;
+    $('#confirm-no').focus();
+    const done = v => {
+      $('#confirm').hidden = true;
+      $('#confirm-yes').onclick = $('#confirm-no').onclick = null;
+      resolve(v);
+    };
+    $('#confirm-yes').onclick = () => done(true);
+    $('#confirm-no').onclick = () => done(false);
+  });
+}
+
+function storeError(e) {
+  console.error(e);
+  if (e && e.code === 'quota_exceeded') toast('保存容量の上限に達しました。古い記録を削除してください。');
+  else if (e && e.code === 'invalid_argument') toast('保存できませんでした。この画面では書き込みが許可されていません。');
+  else toast('保存できませんでした。少し待ってからもう一度お試しください。');
+}
+
+/* ---------- 計算（移動平均法） ---------- */
+function compute() {
+  const sorted = [...state.trades].sort((a, b) => a.date.localeCompare(b.date) || (a.seq || 0) - (b.seq || 0));
+  const pos = {};
+  const realized = {};
+  const over = {};
+  for (const t of sorted) {
+    const p = pos[t.code] || (pos[t.code] = { qty: 0, cost: 0 });
+    if (t.side === 'buy') {
+      p.qty += t.qty;
+      p.cost += t.qty * t.price + t.fee;
+    } else {
+      if (t.qty > p.qty + 1e-9) over[t.id] = true;
+      const q = Math.min(t.qty, p.qty);
+      const avg = p.qty > 0 ? p.cost / p.qty : 0;
+      realized[t.id] = t.qty * t.price - t.fee - avg * q;
+      p.qty -= q;
+      p.cost -= avg * q;
+      if (p.qty < 1e-9) { p.qty = 0; p.cost = 0; }
+    }
+  }
+  const holdings = Object.entries(pos).filter(([, p]) => p.qty > 0).map(([code, p]) => {
+    const price = state.prices[code];
+    const has = typeof price === 'number' && isFinite(price);
+    const market = has ? p.qty * price : p.cost;
+    return { code, qty: p.qty, cost: p.cost, avg: p.cost / p.qty, price: has ? price : null, market, unreal: market - p.cost };
+  }).sort((a, b) => b.market - a.market);
+  return { holdings, realized, over };
+}
+
+/* ---------- 描画 ---------- */
+const PALETTE = ['#3b63c4', '#d98a1c', '#2f9e8f', '#8a5cc2', '#c4513b', '#5a8f2e', '#c2478a', '#6b7a8f'];
+
+function render() {
+  const c = compute();
+  renderDashboard(c);
+  renderTrades(c);
+  renderDividends();
+  renderYearly(c);
+  const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.names)]);
+  $('#code-list').innerHTML = [...codes].sort().map(k => `<option value="${esc(k)}">${esc(nameOf(k))}</option>`).join('');
+  $('#sample-banner').hidden = !sampleMode;
+}
+
+function setVal(sel, n) {
+  const el = $(sel);
+  el.textContent = signed(n);
+  el.className = 'value ' + tone(n);
+}
+
+function renderDashboard({ holdings, realized }) {
+  const market = holdings.reduce((s, h) => s + h.market, 0);
+  const cost = holdings.reduce((s, h) => s + h.cost, 0);
+  const unreal = market - cost;
+  const real = Object.values(realized).reduce((s, v) => s + v, 0);
+  const div = state.dividends.reduce((s, d) => s + d.amount, 0);
+
+  $('#t-market').textContent = yen(market);
+  $('#t-cost').textContent = '取得額 ' + yen(cost);
+  setVal('#t-unreal', unreal);
+  $('#t-unreal-pct').textContent = cost ? pct(unreal / cost) : '—';
+  setVal('#t-real', real);
+  $('#t-real-n').textContent = `売却 ${Object.keys(realized).length}回`;
+  setVal('#t-div', div);
+  $('#t-div-n').textContent = `${state.dividends.length}件`;
+  setVal('#t-total', unreal + real + div);
+
+  const body = $('#holdings-body');
+  if (!holdings.length) {
+    body.innerHTML = `<tr><td colspan="10" class="empty">
+      まだ保有銘柄がありません。<br>「売買履歴」タブで買いを記録すると、ここに一覧が出ます。
+      ${sampleMode || state.trades.length ? '' : '<br><br><button class="btn" data-sample>サンプルデータで見てみる</button>'}
+    </td></tr>`;
+    $('#alloc').innerHTML = '';
+    return;
+  }
+  body.innerHTML = holdings.map((h, i) => `<tr>
+    <td class="mono"><span class="sw" style="background:${PALETTE[i % PALETTE.length]}"></span>${esc(h.code)}</td>
+    <td>${esc(nameOf(h.code))}</td>
+    <td class="r num">${decFmt.format(h.qty)}</td>
+    <td class="r num">${decFmt.format(h.avg)}</td>
+    <td class="r num">${yen(h.cost)}</td>
+    <td class="r"><input class="price-in" type="number" step="any" min="0" inputmode="decimal" id="price-${esc(h.code)}" data-code="${esc(h.code)}" value="${h.price ?? ''}" placeholder="未入力" aria-label="${esc(h.code)} の現在値"></td>
+    <td class="r num">${yen(h.market)}</td>
+    <td class="r num ${h.price === null ? '' : tone(h.unreal)}">${h.price === null ? '—' : signed(h.unreal)}</td>
+    <td class="r num ${h.price === null ? '' : tone(h.unreal)}">${h.price === null ? '—' : pct(h.unreal / h.cost)}</td>
+    <td class="r num">${decFmt.format(market ? h.market / market * 100 : 0)}%</td>
+  </tr>`).join('');
+  $('#alloc').innerHTML = holdings.map((h, i) =>
+    `<span title="${esc(h.code)} ${esc(nameOf(h.code))}" style="width:${market ? h.market / market * 100 : 0}%;background:${PALETTE[i % PALETTE.length]}"></span>`).join('');
+}
+
+function renderTrades({ realized, over }) {
+  const q = $('#trade-filter').value.trim().toLowerCase();
+  const rows = [...state.trades]
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.seq || 0) - (a.seq || 0))
+    .filter(t => !q || t.code.toLowerCase().includes(q) || nameOf(t.code).toLowerCase().includes(q));
+  const body = $('#trades-body');
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="11" class="empty">${q ? '該当する記録がありません。' : 'まだ記録がありません。上のフォームから最初の売買を入力してください。'}</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(t => {
+    const gross = t.qty * t.price;
+    const settle = t.side === 'buy' ? gross + t.fee : gross - t.fee;
+    const r = realized[t.id];
+    return `<tr>
+      <td class="mono">${esc(t.date)}</td>
+      <td><span class="side ${t.side}">${t.side === 'buy' ? '買' : '売'}</span></td>
+      <td class="mono">${esc(t.code)}</td>
+      <td>${esc(nameOf(t.code))}</td>
+      <td class="r num">${decFmt.format(t.qty)}</td>
+      <td class="r num">${decFmt.format(t.price)}</td>
+      <td class="r num">${yen(t.fee)}</td>
+      <td class="r num">${yen(settle)}</td>
+      <td class="r num ${r === undefined ? '' : tone(r)}">${r === undefined ? '' : signed(r)}${over[t.id] ? '<span class="flag" title="売った株数が、その時点の保有株数を超えています">保有超過</span>' : ''}</td>
+      <td class="memo">${esc(t.memo)}</td>
+      <td><button class="link" data-edit-trade="${esc(t.id)}">編集</button><button class="link del" data-del-trade="${esc(t.id)}">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDividends() {
+  const rows = [...state.dividends].sort((a, b) => b.date.localeCompare(a.date));
+  const body = $('#dividends-body');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty">まだ配当の記録がありません。</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(d => `<tr>
+    <td class="mono">${esc(d.date)}</td>
+    <td class="mono">${esc(d.code)}</td>
+    <td>${esc(nameOf(d.code))}</td>
+    <td class="r num">${yen(d.amount)}</td>
+    <td class="memo">${esc(d.memo)}</td>
+    <td><button class="link" data-edit-div="${esc(d.id)}">編集</button><button class="link del" data-del-div="${esc(d.id)}">削除</button></td>
+  </tr>`).join('');
+}
+
+function renderYearly({ realized }) {
+  const years = {};
+  const row = date => (years[date.slice(0, 4)] ||= { real: 0, div: 0, n: 0 });
+  for (const t of state.trades) { const r = row(t.date); r.n++; if (t.id in realized) r.real += realized[t.id]; }
+  for (const d of state.dividends) row(d.date).div += d.amount;
+  const keys = Object.keys(years).sort().reverse();
+  const body = $('#yearly-body');
+  if (!keys.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">まだ記録がありません。</td></tr>';
+    return;
+  }
+  body.innerHTML = keys.map(k => {
+    const r = years[k];
+    return `<tr>
+      <td class="mono">${k}年</td>
+      <td class="r num ${tone(r.real)}">${signed(r.real)}</td>
+      <td class="r num">${yen(r.div)}</td>
+      <td class="r num ${tone(r.real + r.div)}">${signed(r.real + r.div)}</td>
+      <td class="r num">${r.n}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------- 保存先 ---------- */
+// クラウド（db）が使えればそこへ、使えなければこのブラウザ（localStorage）へ保存する。
+function makeLocalStore() {
+  const KEY = 'kabu-note-v1';
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const loaded = { trades: [], dividends: [], prices: {}, names: {}, ...JSON.parse(raw) };
+      if (sampleMode) savedState = loaded; else state = loaded;
+    }
+  } catch (e) { /* 読めなくても空で始める */ }
+  const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast('このブラウザに保存できませんでした。'); } };
+  return {
+    kind: 'local',
+    async putTrade(t) { const i = state.trades.findIndex(x => x.id === t.id); i >= 0 ? state.trades[i] = t : state.trades.push(t); persist(); render(); },
+    async delTrade(id) { state.trades = state.trades.filter(x => x.id !== id); persist(); render(); },
+    async putDiv(d) { const i = state.dividends.findIndex(x => x.id === d.id); i >= 0 ? state.dividends[i] = d : state.dividends.push(d); persist(); render(); },
+    async delDiv(id) { state.dividends = state.dividends.filter(x => x.id !== id); persist(); render(); },
+    async putMeta() { persist(); render(); },
+    async replaceAll(data) { state = data; persist(); render(); },
+  };
+}
+
+function makeDbStore(db, id) {
+  const meta = db.doc(`data/users/${id}/portfolio`);
+  const tradesCol = meta.collection('trades');
+  const divCol = meta.collection('dividends');
+  let real = { trades: [], dividends: [], prices: {}, names: {} };
+  const apply = () => { if (!sampleMode) { state = real; render(); } else { savedState = real; } };
+
+  const fail = e => { console.error(e); $('#store-chip').textContent = '接続が切れました'; $('#store-chip').className = 'chip warn'; };
+  tradesCol.onSnapshot(s => { real = { ...real, trades: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
+  divCol.onSnapshot(s => { real = { ...real, dividends: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
+  meta.onSnapshot(s => {
+    const d = s.exists ? s.data() : {};
+    real = { ...real, prices: { ...(d.prices || {}) }, names: { ...(d.names || {}) } };
+    apply();
+  }, fail);
+
+  // 同じドキュメントへの書き込みは1つずつ
+  let metaChain = Promise.resolve();
+  const strip = o => { const { id: _, ...rest } = o; return rest; };
+  return {
+    kind: 'db',
+    putTrade: t => tradesCol.doc(t.id).set(strip(t)),
+    delTrade: id => tradesCol.doc(id).delete(),
+    putDiv: d => divCol.doc(d.id).set(strip(d)),
+    delDiv: id => divCol.doc(id).delete(),
+    putMeta() {
+      const body = { prices: { ...state.prices }, names: { ...state.names } };
+      metaChain = metaChain.then(() => meta.set(body));
+      return metaChain;
+    },
+    async replaceAll(data) {
+      for (const t of real.trades) await tradesCol.doc(t.id).delete();
+      for (const d of real.dividends) await divCol.doc(d.id).delete();
+      for (const t of data.trades) await tradesCol.doc(t.id).set(strip(t));
+      for (const d of data.dividends) await divCol.doc(d.id).set(strip(d));
+      metaChain = metaChain.then(() => meta.set({ prices: data.prices, names: data.names }));
+      await metaChain;
+    },
+  };
+}
+
+function describeStore() {
+  const chip = $('#store-chip');
+  if (store.kind === 'db') {
+    chip.textContent = 'クラウドに保存';
+    chip.className = 'chip on';
+    $('#store-desc').textContent = '記録はあなた専用のクラウド領域に自動保存されます。このリンクを開けば、別のパソコンからでも同じ記録が見られます。ほかの人には見えません。';
+  } else {
+    chip.textContent = 'このブラウザに保存';
+    chip.className = 'chip warn';
+    $('#store-desc').textContent = 'いまはクラウド保存が使えないため、このブラウザの中にだけ保存しています。ブラウザのデータを消すと記録も消えるので、ときどき「JSONで保存」でバックアップしてください。';
+  }
+}
+
+async function guard(fn) {
+  if (sampleMode) { toast('サンプル表示中は保存できません。先に「サンプルを閉じる」を押してください。'); return false; }
+  if (!store) { toast('準備中です。数秒待ってからもう一度お試しください。'); return false; }
+  try { await fn(); return true; } catch (e) { storeError(e); return false; }
+}
+
+/* ---------- タブ ---------- */
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'tab-' + name; });
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+/* ---------- 現在値 ---------- */
+$('#holdings-body').addEventListener('change', e => {
+  const input = e.target.closest('.price-in');
+  if (!input) return;
+  const v = parseFloat(input.value);
+  if (isNaN(v)) delete state.prices[input.dataset.code];
+  else state.prices[input.dataset.code] = v;
+  render();
+  if (!sampleMode) guard(() => store.putMeta());
+});
+$('#holdings-body').addEventListener('click', e => { if (e.target.closest('[data-sample]')) startSample(); });
+
+/* ---------- 売買フォーム ---------- */
+const tf = $('#trade-form').elements;
+function resetTradeForm() {
+  $('#trade-form').reset();
+  tf.tid.value = '';
+  tf.date.value = today();
+  $('#trade-title').textContent = '売買を記録';
+  $('#trade-cancel').hidden = true;
+}
+tf.code.addEventListener('change', () => {
+  const n = nameOf(tf.code.value.trim());
+  if (n && !tf.sname.value) tf.sname.value = n;
+});
+$('#trade-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = tf.code.value.trim();
+  const prev = state.trades.find(t => t.id === tf.tid.value);
+  const trade = {
+    id: tf.tid.value || uid(),
+    seq: prev ? prev.seq : Date.now(),
+    date: tf.date.value,
+    side: tf.side.value,
+    code,
+    qty: parseFloat(tf.qty.value),
+    price: parseFloat(tf.price.value),
+    fee: parseFloat(tf.fee.value) || 0,
+    memo: tf.memo.value.trim(),
+  };
+  const sname = tf.sname.value.trim();
+  const ok = await guard(async () => {
+    await store.putTrade(trade);
+    if (sname && state.names[code] !== sname) { state.names[code] = sname; await store.putMeta(); }
+  });
+  if (ok) { toast(prev ? '売買を更新しました' : '売買を記録しました'); resetTradeForm(); tf.date.focus(); }
+});
+$('#trade-cancel').addEventListener('click', resetTradeForm);
+$('#trades-body').addEventListener('click', async e => {
+  const ed = e.target.dataset.editTrade, del = e.target.dataset.delTrade;
+  if (ed) {
+    const t = state.trades.find(x => x.id === ed);
+    tf.tid.value = t.id; tf.date.value = t.date; tf.side.value = t.side; tf.code.value = t.code;
+    tf.sname.value = nameOf(t.code); tf.qty.value = t.qty; tf.price.value = t.price; tf.fee.value = t.fee; tf.memo.value = t.memo || '';
+    $('#trade-title').textContent = '売買を編集';
+    $('#trade-cancel').hidden = false;
+    $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (del) {
+    const t = state.trades.find(x => x.id === del);
+    if (await ask(`${t.date} の ${t.code} ${t.side === 'buy' ? '買い' : '売り'} ${decFmt.format(t.qty)}株 を削除しますか？`)) {
+      if (await guard(() => store.delTrade(del))) toast('削除しました');
+    }
+  }
+});
+$('#trade-filter').addEventListener('input', render);
+
+/* ---------- 配当フォーム ---------- */
+const df = $('#div-form').elements;
+function resetDivForm() {
+  $('#div-form').reset();
+  df.tid.value = '';
+  df.date.value = today();
+  $('#div-title').textContent = '配当を記録';
+  $('#div-cancel').hidden = true;
+}
+$('#div-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const prev = state.dividends.find(d => d.id === df.tid.value);
+  const div = { id: df.tid.value || uid(), date: df.date.value, code: df.code.value.trim(), amount: parseFloat(df.amount.value), memo: df.memo.value.trim() };
+  if (await guard(() => store.putDiv(div))) { toast(prev ? '配当を更新しました' : '配当を記録しました'); resetDivForm(); }
+});
+$('#div-cancel').addEventListener('click', resetDivForm);
+$('#dividends-body').addEventListener('click', async e => {
+  const ed = e.target.dataset.editDiv, del = e.target.dataset.delDiv;
+  if (ed) {
+    const d = state.dividends.find(x => x.id === ed);
+    df.tid.value = d.id; df.date.value = d.date; df.code.value = d.code; df.amount.value = d.amount; df.memo.value = d.memo || '';
+    $('#div-title').textContent = '配当を編集';
+    $('#div-cancel').hidden = false;
+  } else if (del) {
+    const d = state.dividends.find(x => x.id === del);
+    if (await ask(`${d.date} の ${d.code} の配当 ${yen(d.amount)} を削除しますか？`)) {
+      if (await guard(() => store.delDiv(del))) toast('削除しました');
+    }
+  }
+});
+
+/* ---------- サンプル ---------- */
+function sampleData() {
+  const y = new Date().getFullYear();
+  const t = (date, side, code, qty, price, fee, memo, seq) => ({ id: 'sample' + seq, seq, date, side, code, qty, price, fee, memo });
+  return {
+    trades: [
+      t(`${y - 1}-04-08`, 'buy', '7203', 100, 2650, 0, '', 1),
+      t(`${y - 1}-09-12`, 'buy', '7203', 100, 2890, 0, '押し目で追加', 2),
+      t(`${y - 1}-06-03`, 'buy', '8306', 300, 1580, 0, '', 3),
+      t(`${y}-02-14`, 'sell', '8306', 100, 1920, 0, '一部利確', 4),
+      t(`${y}-03-02`, 'buy', '9432', 1000, 158, 0, '', 5),
+    ],
+    dividends: [
+      { id: 'sampled1', date: `${y - 1}-12-05`, code: '8306', amount: 4780, memo: '中間配当' },
+      { id: 'sampled2', date: `${y}-06-02`, code: '7203', amount: 7170, memo: '期末配当' },
+    ],
+    prices: { '7203': 2955, '8306': 1865, '9432': 151 },
+    names: { '7203': 'トヨタ自動車', '8306': '三菱UFJフィナンシャル・グループ', '9432': '日本電信電話' },
+  };
+}
+function startSample() {
+  savedState = state;
+  sampleMode = true;
+  state = sampleData();
+  render();
+}
+$('#sample-close').addEventListener('click', () => {
+  sampleMode = false;
+  state = savedState || { trades: [], dividends: [], prices: {}, names: {} };
+  savedState = null;
+  render();
+});
+
+/* ---------- バックアップ ---------- */
+async function saveFile(filename, data) {
+  if (!downloads) { toast('この画面ではファイルを保存できません。'); return; }
+  try {
+    await downloads.save({ filename, data });
+    toast('保存しました');
+  } catch (e) {
+    if (e && e.code === 'declined') return;
+    toast('ファイルを保存できませんでした。');
+  }
+}
+$('#export-json').addEventListener('click', () => {
+  const { trades, dividends, prices, names } = state;
+  saveFile(`kabu-note-${today()}.json`, JSON.stringify({ trades, dividends, prices, names }, null, 2));
+});
+$('#export-csv').addEventListener('click', () => {
+  const { realized } = compute();
+  const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const head = ['約定日', '売買', 'コード', '銘柄名', '株数', '単価', '手数料', '実現損益', 'メモ'];
+  const lines = [...state.trades].sort((a, b) => a.date.localeCompare(b.date) || (a.seq || 0) - (b.seq || 0))
+    .map(t => [t.date, t.side === 'buy' ? '買' : '売', t.code, nameOf(t.code), t.qty, t.price, t.fee,
+      t.id in realized ? Math.round(realized[t.id]) : '', t.memo].map(cell).join(','));
+  // Excelで文字化けしないようBOMを付ける
+  saveFile(`kabu-trades-${today()}.csv`, '﻿' + [head.map(cell).join(','), ...lines].join('\r\n'));
+});
+$('#import-json').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+    if (!Array.isArray(data.trades) || !Array.isArray(data.dividends)) throw new Error();
+  } catch (err) {
+    toast('読み込めませんでした。株ノートで保存したJSONファイルを選んでください。');
+    return;
+  }
+  if (!await ask(`売買 ${data.trades.length}件・配当 ${data.dividends.length}件 を読み込み、いまの記録と置き換えますか？`, '置き換える')) return;
+  const clean = {
+    trades: data.trades.map((t, i) => ({ ...t, id: String(t.id || uid()).replace(/[^A-Za-z0-9_-]/g, '') || uid(), seq: t.seq || i + 1 })),
+    dividends: data.dividends.map(d => ({ ...d, id: String(d.id || uid()).replace(/[^A-Za-z0-9_-]/g, '') || uid() })),
+    prices: data.prices || {},
+    names: data.names || {},
+  };
+  toast('読み込み中…');
+  if (await guard(() => store.replaceAll(clean))) toast('読み込みました');
+});
+$('#reset-all').addEventListener('click', async () => {
+  if (!await ask('すべての記録を削除します。元に戻せません。よろしいですか？', 'すべて削除')) return;
+  if (await guard(() => store.replaceAll({ trades: [], dividends: [], prices: {}, names: {} }))) toast('すべて削除しました');
+});
+
+/* ---------- 起動 ---------- */
+resetTradeForm();
+resetDivForm();
+render();
+
+(async () => {
+  const api = window.claude;
+  const [db, user, dl] = api && api.use
+    ? await Promise.all([api.use('db'), api.use('user'), api.use('downloads')])
+    : [null, null, null];
+  downloads = dl;
+  $('#dl-note').hidden = !!dl;
+  ['#export-json', '#export-csv'].forEach(s => { $(s).disabled = !dl; });
+  const id = user ? await user.id() : null;
+  store = db && id ? makeDbStore(db, id) : makeLocalStore();
+  describeStore();
+  render();
+})();
+</script>
