@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>株ノート</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>株ノート</h1>
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">ダッシュボード</button>
+      <button class="tab" data-tab="trades">売買履歴</button>
+      <button class="tab" data-tab="dividends">配当</button>
+      <button class="tab" data-tab="yearly">年別損益</button>
+      <button class="tab" data-tab="data">データ</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ダッシュボード -->
+    <section id="tab-dashboard" class="panel active">
+      <div class="cards">
+        <div class="card"><div class="label">評価額</div><div class="value" id="sum-market">-</div></div>
+        <div class="card"><div class="label">取得額</div><div class="value" id="sum-cost">-</div></div>
+        <div class="card"><div class="label">含み損益</div><div class="value" id="sum-unrealized">-</div></div>
+        <div class="card"><div class="label">実現損益（累計）</div><div class="value" id="sum-realized">-</div></div>
+        <div class="card"><div class="label">受取配当（累計）</div><div class="value" id="sum-dividend">-</div></div>
+        <div class="card"><div class="label">トータル損益</div><div class="value" id="sum-total">-</div></div>
+      </div>
+
+      <h2>保有銘柄</h2>
+      <p class="hint">現在値は手入力です（入力すると自動保存）。</p>
+      <div class="alloc" id="alloc"></div>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>コード</th><th>銘柄名</th><th class="num">保有数</th><th class="num">平均取得単価</th>
+            <th class="num">取得額</th><th class="num">現在値</th><th class="num">評価額</th>
+            <th class="num">含み損益</th><th class="num">損益率</th><th class="num">比率</th>
+          </tr>
+        </thead>
+        <tbody id="holdings-body"></tbody>
+      </table>
+    </section>
+
+    <!-- 売買履歴 -->
+    <section id="tab-trades" class="panel">
+      <h2 id="trade-form-title">売買を記録</h2>
+      <form id="trade-form" class="form">
+        <input type="hidden" name="id">
+        <label>日付<input type="date" name="date" required></label>
+        <label>売買
+          <select name="side">
+            <option value="buy">買い</option>
+            <option value="sell">売り</option>
+          </select>
+        </label>
+        <label>コード<input type="text" name="code" required placeholder="7203" list="code-list"></label>
+        <label>銘柄名<input type="text" name="name" placeholder="トヨタ自動車"></label>
+        <label>株数<input type="number" name="qty" required min="0" step="any"></label>
+        <label>単価<input type="number" name="price" required min="0" step="any"></label>
+        <label>手数料<input type="number" name="fee" min="0" step="any" value="0"></label>
+        <label class="wide">メモ<input type="text" name="memo"></label>
+        <div class="actions">
+          <button type="submit" class="primary">保存</button>
+          <button type="button" id="trade-cancel" hidden>キャンセル</button>
+        </div>
+      </form>
+      <datalist id="code-list"></datalist>
+
+      <div class="filter">
+        <label>絞り込み<input type="search" id="trade-filter" placeholder="コード・銘柄名"></label>
+      </div>
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>日付</th><th>売買</th><th>コード</th><th>銘柄名</th><th class="num">株数</th>
+            <th class="num">単価</th><th class="num">手数料</th><th class="num">受渡金額</th>
+            <th class="num">実現損益</th><th>メモ</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="trades-body"></tbody>
+      </table>
+    </section>
+
+    <!-- 配当 -->
+    <section id="tab-dividends" class="panel">
+      <h2 id="div-form-title">配当を記録</h2>
+      <form id="div-form" class="form">
+        <input type="hidden" name="id">
+        <label>日付<input type="date" name="date" required></label>
+        <label>コード<input type="text" name="code" required list="code-list"></label>
+        <label>受取額（税引後）<input type="number" name="amount" required min="0" step="any"></label>
+        <label class="wide">メモ<input type="text" name="memo"></label>
+        <div class="actions">
+          <button type="submit" class="primary">保存</button>
+          <button type="button" id="div-cancel" hidden>キャンセル</button>
+        </div>
+      </form>
+      <table class="grid">
+        <thead>
+          <tr><th>日付</th><th>コード</th><th>銘柄名</th><th class="num">受取額</th><th>メモ</th><th></th></tr>
+        </thead>
+        <tbody id="dividends-body"></tbody>
+      </table>
+    </section>
+
+    <!-- 年別 -->
+    <section id="tab-yearly" class="panel">
+      <h2>年別損益</h2>
+      <table class="grid narrow">
+        <thead>
+          <tr><th>年</th><th class="num">実現損益</th><th class="num">受取配当</th><th class="num">合計</th><th class="num">売買回数</th></tr>
+        </thead>
+        <tbody id="yearly-body"></tbody>
+      </table>
+    </section>
+
+    <!-- データ -->
+    <section id="tab-data" class="panel">
+      <h2>バックアップ</h2>
+      <p class="hint">データはこのブラウザ内（localStorage）にだけ保存されます。ブラウザのデータ削除で消えるので、定期的にエクスポートしてください。</p>
+      <div class="buttons">
+        <button id="export-json" class="primary">JSONでエクスポート</button>
+        <label class="button">JSONをインポート<input type="file" id="import-json" accept="application/json,.json" hidden></label>
+        <button id="export-csv">売買履歴をCSVで出力</button>
+      </div>
+      <h2>リセット</h2>
+      <button id="reset-all" class="danger">全データを削除</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
