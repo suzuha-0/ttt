@@ -16,6 +16,8 @@ portfolio_main.json は ArtifactData で portfolio/main を取得したもの
   heatmap.json         … portfolio/main/market/heatmap への set 用
   members-jp.json      … portfolio/main/market/members-jp への set 用
   members-us.json      … portfolio/main/market/members-us への set 用
+  listing-*.json       … 銘柄検索用の全銘柄一覧（portfolio/main/listing/*）
+  db-writes.json       … 上のファイルをどの文書に書くかの一覧（1MB 以下のまとまりごと）
 を書き出す。
 """
 import json
@@ -26,6 +28,9 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from jp_listing import scrape_listing  # noqa: E402
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
@@ -212,6 +217,40 @@ def main():
                 {k: (round(r[k], 2) if isinstance(r[k], float) else r[k]) for k in ("code", "name", "last", "d1", "w1", "m1", "m3", "vr")}
                 for r in rows]
 
+    # ---- ウォッチリスト ----
+    watch_prices = {}
+    for w in main_doc.get("watch", []) or []:
+        code = w.get("code")
+        sym = f"{code}.T" if w.get("market") == "jp" else code
+        p = data.get(sym)
+        if not p or "error" in p:
+            _, p = safe_perf(sym)
+        if p and "error" not in p:
+            watch_prices[code] = {k: (round(p[k], 2) if isinstance(p[k], float) else p[k])
+                                  for k in ("last", "d1", "w1", "m1", "m3", "vr", "asOf")}
+        else:
+            errors.append(f"ウォッチ {code}: 取得できず")
+
+    # ---- 銘柄検索用の一覧（日本株は全上場銘柄、米国株は代表銘柄） ----
+    listing = scrape_listing()
+    sector_names = [name for name in listing]
+    items = []
+    for si, name in enumerate(sector_names):
+        for x in listing[name]:
+            items.append([x["code"], short_name(x["name"]), x["market"].replace("東証", ""), si,
+                          x["price"], x["chg"], x["cap"], x["date"], x["desc"]])
+    items.sort(key=lambda r: r[0])
+    chunks, cur, size = [], [], 0
+    for r in items:
+        n = len(json.dumps(r, ensure_ascii=False).encode("utf-8"))
+        if cur and size + n > 180_000:
+            chunks.append(cur)
+            cur, size = [], 0
+        cur.append(r)
+        size += n
+    if cur:
+        chunks.append(cur)
+
     now = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     update = {
         "prices": prices,
@@ -220,6 +259,7 @@ def main():
         "fxAsOf": f"{now}（Yahoo!ファイナンス）",
         "pricesUpdatedAt": now,
         "sectors": sectors,
+        "watchPrices": watch_prices,
     }
     heatmap = {"updatedAt": now, "source": "Yahoo!ファイナンス", **heat}
     dump = lambda name, obj: json.dump(obj, open(f"{out}/{name}", "w", encoding="utf-8"), ensure_ascii=False)
@@ -227,7 +267,32 @@ def main():
     dump("heatmap.json", heatmap)
     dump("members-jp.json", {"updatedAt": now, "sectors": members["jp"]})
     dump("members-us.json", {"updatedAt": now, "sectors": members["us"]})
+    for i, c in enumerate(chunks):
+        dump(f"listing-jp-{i}.json", {"rows": c})
+    dump("listing-info.json", {"updatedAt": now, "chunks": len(chunks), "count": len(items),
+                               "fields": ["code", "name", "market", "sector", "price", "chg", "cap", "date", "desc"],
+                               "sectors": sector_names})
+
+    # どのファイルをどの文書に書くか（ArtifactData の batch は1回1MBまでなので分ける）
+    files = [("portfolio", "main", "update", "prices-update.json"),
+             ("portfolio/main/market", "heatmap", "set", "heatmap.json"),
+             ("portfolio/main/market", "members-jp", "set", "members-jp.json"),
+             ("portfolio/main/market", "members-us", "set", "members-us.json")]
+    files += [("portfolio/main/listing", f"jp-{i}", "set", f"listing-jp-{i}.json") for i in range(len(chunks))]
+    files.append(("portfolio/main/listing", "info", "set", "listing-info.json"))
+    batches, cur, size = [], [], 0
+    for col, doc, op, name in files:
+        path = os.path.abspath(f"{out}/{name}")
+        n = os.path.getsize(path)
+        if cur and size + n > 800_000:
+            batches.append(cur)
+            cur, size = [], 0
+        cur.append({"op": op, "collection": col, "doc_id": doc, "file_path": path})
+        size += n
+    batches.append(cur)
+    dump("db-writes.json", {"batches": batches})
     print(json.dumps({"prices": len(prices), "fx": fx, "heat_jp": len(heat["jp"]), "heat_us": len(heat["us"]),
+                      "listing": len(items), "watch": len(watch_prices), "batches": len(batches),
                       "errors": errors}, ensure_ascii=False))
 
 

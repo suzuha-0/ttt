@@ -191,6 +191,41 @@ td.empty { text-align: center; color: var(--muted); padding: 36px 16px; white-sp
 .price-in { width: 110px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
 .yearly { max-width: 720px; }
 
+/* 銘柄検索 */
+.search-bar { display: flex; flex-wrap: wrap; gap: 8px; }
+.search-bar input { flex: 1 1 320px; font-size: 15px; padding: 10px 12px; }
+.search-bar select { width: auto; flex: 0 1 auto; }
+.search-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .search-layout { grid-template-columns: minmax(0, 1fr); } }
+table.results tbody tr { cursor: pointer; }
+table.results tbody tr.sel td { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+table.results td.name { min-width: 160px; }
+.mkt { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; margin-left: 6px; white-space: nowrap; }
+.detail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: calc(72px + env(safe-area-inset-top, 0px));
+  min-width: 0;
+}
+.detail h3 { font-family: var(--font-display); font-size: 17px; margin: 0; text-wrap: balance; }
+.detail .meta { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.detail .price { font-family: var(--font-num); font-size: 26px; font-variant-numeric: tabular-nums; }
+.detail .price small { font-size: 14px; margin-left: 8px; }
+.detail .desc { font-size: 13px; line-height: 1.7; margin: 0; }
+.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; font-family: var(--font-num); }
+.perf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.perf div { border-radius: 6px; padding: 6px 4px; text-align: center; font-family: var(--font-num); font-size: 12px; }
+.perf span { display: block; font-family: var(--font-body); font-size: 10px; color: var(--muted); }
+.detail .actions .btn { flex: 1 1 auto; text-align: center; }
+a.btn { text-decoration: none; }
+
 /* ヒートマップ */
 .hm-bar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; font-size: 12px; color: var(--muted); }
 .hm-sort { display: flex; align-items: center; gap: 8px; }
@@ -368,6 +403,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
       <button class="tab" role="tab" data-tab="dashboard" aria-selected="true">ダッシュボード</button>
       <button class="tab" role="tab" data-tab="trades" aria-selected="false">売買履歴</button>
       <button class="tab" role="tab" data-tab="dividends" aria-selected="false">配当</button>
+      <button class="tab" role="tab" data-tab="search" aria-selected="false">銘柄検索</button>
       <button class="tab" role="tab" data-tab="heatmap" aria-selected="false">業種ヒートマップ</button>
       <button class="tab" role="tab" data-tab="yearly" aria-selected="false">年別損益</button>
       <button class="tab" role="tab" data-tab="data" aria-selected="false">データ</button>
@@ -539,6 +575,36 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
         <thead><tr><th>入金日</th><th>コード</th><th>銘柄</th><th class="r">受取額</th><th>メモ</th><th></th></tr></thead>
         <tbody id="dividends-body"></tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- 銘柄検索 -->
+  <section class="panel" id="tab-search" hidden>
+    <h2>ウォッチリスト</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>コード</th><th>銘柄</th><th class="r">株価</th><th class="r">1日</th><th class="r">1週</th><th class="r">1か月</th><th class="r">3か月</th><th>決算</th><th></th></tr></thead>
+        <tbody id="watch-body"></tbody>
+      </table>
+    </div>
+
+    <h2>銘柄検索</h2>
+    <div class="search-bar">
+      <input type="search" id="q" placeholder="コード・会社名・事業内容（例: 7203、トヨタ、半導体）" autocomplete="off">
+      <select id="q-market" aria-label="市場"><option value="all">日本株・米国株</option><option value="jp">日本株</option><option value="us">米国株</option></select>
+      <select id="q-sector" aria-label="業種"><option value="">すべての業種</option></select>
+    </div>
+    <p class="hint" id="q-info">読み込み中…</p>
+    <div class="search-layout">
+      <div class="table-wrap">
+        <table class="results">
+          <thead><tr><th>コード</th><th>銘柄</th><th>業種</th><th class="r">株価</th><th class="r">前日比</th><th class="r">時価総額</th></tr></thead>
+          <tbody id="q-body"></tbody>
+        </table>
+      </div>
+      <aside class="detail" id="q-detail">
+        <p class="hint" style="margin:0">検索結果の銘柄を押すと、ここに詳しい情報が出ます。</p>
+      </aside>
     </div>
   </section>
 
@@ -761,6 +827,7 @@ function render() {
   renderEarnings();
   renderHeatmap();
   renderPriceUpdated();
+  renderSearch();
   const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.inst), ...Object.keys(state.names)]);
   $('#code-list').innerHTML = [...codes].sort().map(k => `<option value="${esc(k)}">${esc(nameOf(k))}</option>`).join('');
   $('#sample-banner').hidden = !sampleMode;
@@ -949,6 +1016,7 @@ const metaBody = () => ({
   fx: { ...state.fx }, fxAsOf: state.fxAsOf || '', cash: state.cash.map(c => ({ ...c })), opening: state.opening,
   earnings: JSON.parse(JSON.stringify(state.earnings || {})),
   priceDates: { ...(state.priceDates || {}) }, pricesUpdatedAt: state.pricesUpdatedAt || '',
+  watch: (state.watch || []).map(w => ({ ...w })), watchPrices: JSON.parse(JSON.stringify(state.watchPrices || {})),
   sectors: JSON.parse(JSON.stringify(state.sectors || {})),
 });
 const fromMeta = d => ({
@@ -956,6 +1024,7 @@ const fromMeta = d => ({
   fx: { ...(d.fx || {}) }, fxAsOf: d.fxAsOf || '', cash: Array.isArray(d.cash) ? d.cash.map(c => ({ ...c })) : [], opening: d.opening || null,
   earnings: { ...(d.earnings || {}) },
   priceDates: { ...(d.priceDates || {}) }, pricesUpdatedAt: d.pricesUpdatedAt || '',
+  watch: Array.isArray(d.watch) ? d.watch.map(w => ({ ...w })) : [], watchPrices: { ...(d.watchPrices || {}) },
   sectors: { ...(d.sectors || {}) },
 });
 
@@ -1014,7 +1083,8 @@ function makeDbStore(db, id) {
   meta.onSnapshot(s => { real = { ...real, ...fromMeta(s.exists ? s.data() : {}) }; apply(); }, fail);
   meta.collection('market').doc('heatmap').onSnapshot(s => { heatmap = s.exists ? s.data() : null; renderHeatmap(); }, fail);
   meta.collection('market').doc('members-jp').onSnapshot(s => { hmMembers.jp = s.exists ? s.data().sectors || {} : {}; renderHeatmap(); }, fail);
-  meta.collection('market').doc('members-us').onSnapshot(s => { hmMembers.us = s.exists ? s.data().sectors || {} : {}; renderHeatmap(); }, fail);
+  meta.collection('market').doc('members-us').onSnapshot(s => { hmMembers.us = s.exists ? s.data().sectors || {} : {}; renderHeatmap(); renderSearch(); }, fail);
+  listingSource = meta.collection('listing');
 
   // 同じドキュメントへの書き込みは1つずつ
   let metaChain = Promise.resolve();
@@ -1068,6 +1138,7 @@ async function guard(fn) {
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'tab-' + name; });
+  if (name === 'search') loadListing();
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -1435,6 +1506,253 @@ $('#earn-form').addEventListener('submit', async e => {
   state.earnings = { ...(state.earnings || {}), [code]: { date: date || '', month: date ? '' : month, kind: $('#ef-kind').value, status: $('#ef-status').value, note: $('#ef-note').value.trim() } };
   render();
   if (await guard(() => store.putMeta())) { $('#earn-form').reset(); toast('決算日を保存しました'); }
+});
+
+/* ---------- 銘柄検索 ---------- */
+let listingSource = null;      // db の listing コレクション
+let listingUnsubs = [];
+let listingInfo = null;
+let listingChunks = [];
+let listingJp = [];            // 日本株の全銘柄
+let qSelected = null;          // { market, code }
+const toKana = s => s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+const norm = s => toKana(String(s || '').normalize('NFKC').toLowerCase().replace(/\(株\)|株式会社/g, '').replace(/\s+/g, ''));
+function fmtCap(v) {
+  if (!isNum(v)) return '—';
+  if (v >= 1e6) return dec2.format(v / 1e6) + '兆円';
+  if (v >= 100) return yenFmt.format(Math.round(v / 100)) + '億円';
+  return yenFmt.format(Math.round(v)) + '百万円';
+}
+function loadListing() {
+  if (!listingSource || listingUnsubs.length) { renderSearch(); return; }
+  const fail = e => console.error(e);
+  listingUnsubs.push(listingSource.doc('info').onSnapshot(s => {
+    listingInfo = s.exists ? s.data() : null;
+    // 一覧の分割数が変わったら購読し直す
+    listingUnsubs.splice(1).forEach(u => u());
+    listingChunks = [];
+    const n = listingInfo ? listingInfo.chunks || 0 : 0;
+    for (let i = 0; i < n; i++) {
+      listingUnsubs.push(listingSource.doc('jp-' + i).onSnapshot(c => {
+        listingChunks[i] = c.exists ? c.data().rows || [] : [];
+        buildListing();
+      }, fail));
+    }
+    buildListing();
+  }, fail));
+}
+function buildListing() {
+  const secs = listingInfo ? listingInfo.sectors || [] : [];
+  listingJp = listingChunks.flat().map(r => ({
+    market: 'jp', code: r[0], name: r[1], board: r[2], sector: secs[r[3]] || '', price: r[4], chg: r[5], cap: r[6], date: r[7], desc: r[8],
+    key: norm(r[1]), dkey: norm(r[8]),
+  }));
+  fillSectorSelect();
+  renderSearch();
+}
+function usRows() {
+  const out = [], seen = new Set();
+  for (const [sector, list] of Object.entries(hmMembers.us || {})) {
+    for (const m of list) {
+      if (seen.has(m.code)) continue;
+      seen.add(m.code);
+      out.push({ market: 'us', code: m.code, name: m.name, sector, price: m.last, chg: m.d1, cap: null, perf: m, key: norm(m.name), dkey: '' });
+    }
+  }
+  return out;
+}
+function fillSectorSelect() {
+  const sel = $('#q-sector');
+  const cur = sel.value;
+  const jp = listingInfo ? listingInfo.sectors || [] : [];
+  const us = Object.keys(hmMembers.us || {});
+  sel.innerHTML = '<option value="">すべての業種</option>'
+    + (jp.length ? `<optgroup label="日本株（東証33業種）">${jp.map(x => `<option value="jp|${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>` : '')
+    + (us.length ? `<optgroup label="米国株">${us.map(x => `<option value="us|${esc(x)}">${esc(x)}</option>`).join('')}</optgroup>` : '');
+  sel.value = cur;
+}
+function jpPerf(code) {
+  for (const list of Object.values(hmMembers.jp || {})) {
+    const m = list.find(x => x.code === code);
+    if (m) return m;
+  }
+  return null;
+}
+function findStock(market, code) {
+  if (market === 'jp') return listingJp.find(x => x.code === code) || null;
+  return usRows().find(x => x.code === code) || null;
+}
+function searchResults() {
+  const q = norm($('#q').value.trim());
+  const mk = $('#q-market').value;
+  const [sm, ss] = ($('#q-sector').value || '|').split('|');
+  let pool = [];
+  if (mk !== 'us') pool = pool.concat(listingJp);
+  if (mk !== 'jp') pool = pool.concat(usRows());
+  if (ss) pool = pool.filter(x => x.market === sm && x.sector === ss);
+  if (!q) return { rows: [...pool].sort((a, b) => (b.cap || 0) - (a.cap || 0)).slice(0, 50), total: pool.length, q };
+  const scored = [];
+  for (const x of pool) {
+    const code = x.code.toLowerCase();
+    let sc = 0;
+    if (code === q) sc = 100;
+    else if (code.startsWith(q)) sc = 80;
+    else if (x.key.startsWith(q)) sc = 60;
+    else if (x.key.includes(q)) sc = 40;
+    else if (x.dkey.includes(q)) sc = 20;
+    if (sc) scored.push([sc, x]);
+  }
+  scored.sort((a, b) => b[0] - a[0] || (b[1].cap || 0) - (a[1].cap || 0));
+  return { rows: scored.slice(0, 50).map(s => s[1]), total: scored.length, q };
+}
+function renderSearch() {
+  renderWatch();
+  if ($('#tab-search').hidden) return;
+  const body = $('#q-body');
+  const ready = listingJp.length || usRows().length;
+  if (!ready) {
+    body.innerHTML = `<tr><td colspan="6" class="empty">${listingSource ? '銘柄一覧を読み込み中です…' : 'この画面では銘柄一覧が使えません。'}</td></tr>`;
+    $('#q-info').textContent = '';
+    return;
+  }
+  const { rows, total, q } = searchResults();
+  $('#q-info').textContent = (q ? `${total}件見つかりました` : '時価総額の大きい順') + (total > 50 ? '（上位50件を表示）' : '')
+    + `。日本株 ${listingJp.length}銘柄・米国株 ${usRows().length}銘柄から検索${listingInfo ? `（${listingInfo.updatedAt} 更新）` : ''}。`;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty">見つかりませんでした。コードや別の書き方（ひらがな・カタカナ・英字）でも試してください。</td></tr>';
+  } else {
+    body.innerHTML = rows.map(x => {
+      const sel = qSelected && qSelected.market === x.market && qSelected.code === x.code;
+      const price = x.price == null ? '—' : (x.market === 'us' ? '$' + dec2.format(x.price) : decFmt.format(x.price) + '円');
+      return `<tr class="${sel ? 'sel' : ''}" data-q="${x.market}|${esc(x.code)}">
+        <td class="mono">${esc(x.code)}</td>
+        <td class="name">${esc(x.name)}${x.board ? `<span class="mkt">${esc(x.board)}</span>` : x.market === 'us' ? '<span class="mkt">米国</span>' : ''}</td>
+        <td>${esc(x.sector)}</td>
+        <td class="r num">${price}</td>
+        <td class="r num ${tone(x.chg || 0)}">${x.chg == null ? '—' : (x.chg > 0 ? '+' : x.chg < 0 ? '−' : '') + dec2.format(Math.abs(x.chg)) + '%'}</td>
+        <td class="r num">${x.market === 'jp' ? fmtCap(x.cap) : '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+  renderDetail();
+}
+function perfBox(p) {
+  if (!p) return '<p class="hint" style="margin:0">期間ごとの値動きは、ウォッチリストに入れると次の自動更新から表示されます。</p>';
+  const cell = (label, v, key) => {
+    const k = v == null ? 0 : Math.min(Math.abs(v) / HM_SCALE[key], 1);
+    const col = v > 0 ? 'var(--gain)' : v < 0 ? 'var(--loss)' : 'var(--sunken)';
+    const bg = !v ? 'var(--sunken)' : `color-mix(in srgb, ${col} ${Math.round(8 + k * 52)}%, var(--surface))`;
+    return `<div style="background:${bg}"><span>${label}</span>${v == null ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + dec2.format(Math.abs(v)) + '%'}</div>`;
+  };
+  return `<div class="perf">${cell('1日', p.d1, 'd1')}${cell('1週', p.w1, 'w1')}${cell('1か月', p.m1, 'm1')}${cell('3か月', p.m3, 'm3')}</div>`;
+}
+function renderDetail() {
+  const box = $('#q-detail');
+  if (!qSelected) return;
+  const x = findStock(qSelected.market, qSelected.code);
+  if (!x) { box.innerHTML = '<p class="hint" style="margin:0">この銘柄の情報が見つかりません。</p>'; return; }
+  const us = x.market === 'us';
+  const perf = us ? x.perf : (jpPerf(x.code) || (state.watchPrices || {})[x.code] || null);
+  const held = compute().holdings.filter(h => h.code === x.code);
+  const watching = (state.watch || []).some(w => w.code === x.code && w.market === x.market);
+  const e = (state.earnings || {})[x.code];
+  const yahoo = us ? `https://finance.yahoo.com/quote/${encodeURIComponent(x.code)}` : `https://finance.yahoo.co.jp/quote/${encodeURIComponent(x.code)}.T`;
+  box.innerHTML = `
+    <div>
+      <div class="meta"><span class="mono">${esc(x.code)}</span><span>${us ? '米国株' : '東証' + esc(x.board || '')}</span><span>${esc(x.sector)}</span></div>
+      <h3>${esc(x.name)}</h3>
+    </div>
+    <div class="price">${x.price == null ? '—' : us ? '$' + dec2.format(x.price) : decFmt.format(x.price) + '<small style="margin-left:2px">円</small>'}
+      ${x.chg == null ? '' : `<small class="${tone(x.chg)}">${x.chg > 0 ? '+' : x.chg < 0 ? '−' : ''}${dec2.format(Math.abs(x.chg))}%</small>`}</div>
+    ${perfBox(perf)}
+    ${x.desc ? `<p class="desc">${esc(x.desc)}</p>` : ''}
+    <dl>
+      ${us ? '' : `<dt>時価総額</dt><dd>${fmtCap(x.cap)}</dd>`}
+      ${x.date ? `<dt>株価の日付</dt><dd>${esc(x.date)}</dd>` : ''}
+      <dt>保有</dt><dd>${held.length ? held.map(h => `${decFmt.format(h.qty)}株（${esc(h.account)}）`).join('、') : 'なし'}</dd>
+      ${e ? `<dt>決算予定</dt><dd>${esc(earnDateText(e))} ${esc(e.kind || '')}</dd>` : ''}
+    </dl>
+    <div class="actions">
+      <button class="btn" data-watch-toggle>${watching ? 'ウォッチから外す' : 'ウォッチに追加'}</button>
+      <button class="btn primary" data-buy>買いを記録</button>
+      <a class="btn" href="${yahoo}" target="_blank" rel="noopener">Yahoo!ファイナンス</a>
+    </div>`;
+}
+function renderWatch() {
+  const body = $('#watch-body');
+  const list = state.watch || [];
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty">気になる銘柄は、下の検索結果から「ウォッチに追加」で登録できます。</td></tr>';
+    return;
+  }
+  body.innerHTML = list.map(w => {
+    const x = findStock(w.market, w.code);
+    const p = (state.watchPrices || {})[w.code] || (w.market === 'us' ? x && x.perf : jpPerf(w.code));
+    const last = p && p.last != null ? p.last : x ? x.price : null;
+    const e = (state.earnings || {})[w.code];
+    const c = v => v == null ? '<td class="r num">—</td>' : `<td class="r num ${tone(v)}">${v > 0 ? '+' : v < 0 ? '−' : ''}${dec2.format(Math.abs(v))}%</td>`;
+    return `<tr>
+      <td class="mono">${esc(w.code)}</td>
+      <td class="name"><button class="link" style="padding:0" data-q-open="${w.market}|${esc(w.code)}">${esc(w.name || (x && x.name) || w.code)}</button>${earnChip(w.code, 14)}</td>
+      <td class="r num">${last == null ? '—' : w.market === 'us' ? '$' + dec2.format(last) : decFmt.format(last) + '円'}</td>
+      ${c(p ? p.d1 : x && x.chg)}${c(p && p.w1)}${c(p && p.m1)}${c(p && p.m3)}
+      <td>${e ? esc(earnDateText(e)) : ''}</td>
+      <td><button class="link del" data-unwatch="${w.market}|${esc(w.code)}">外す</button></td>
+    </tr>`;
+  }).join('');
+}
+let qTimer;
+$('#q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(renderSearch, 120); });
+$('#q-market').addEventListener('change', renderSearch);
+$('#q-sector').addEventListener('change', renderSearch);
+$('#q-body').addEventListener('click', e => {
+  const tr = e.target.closest('[data-q]');
+  if (!tr) return;
+  const [market, code] = tr.dataset.q.split('|');
+  qSelected = { market, code };
+  renderSearch();
+  if (window.matchMedia('(max-width: 900px)').matches) $('#q-detail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+$('#watch-body').addEventListener('click', async e => {
+  const open = e.target.closest('[data-q-open]');
+  const un = e.target.closest('[data-unwatch]');
+  if (open) {
+    const [market, code] = open.dataset.qOpen.split('|');
+    qSelected = { market, code };
+    renderSearch();
+    $('#q-detail').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (un) {
+    const [market, code] = un.dataset.unwatch.split('|');
+    state.watch = (state.watch || []).filter(w => !(w.market === market && w.code === code));
+    renderSearch();
+    guard(() => store.putMeta());
+  }
+});
+$('#q-detail').addEventListener('click', async e => {
+  if (!qSelected) return;
+  const x = findStock(qSelected.market, qSelected.code);
+  if (!x) return;
+  if (e.target.closest('[data-watch-toggle]')) {
+    if (sampleMode) { toast('サンプル表示中は保存できません。'); return; }
+    const list = state.watch || [];
+    const i = list.findIndex(w => w.code === x.code && w.market === x.market);
+    if (i >= 0) list.splice(i, 1);
+    else list.push({ code: x.code, market: x.market, name: x.name });
+    state.watch = list;
+    renderSearch();
+    if (await guard(() => store.putMeta())) toast(i >= 0 ? 'ウォッチから外しました' : 'ウォッチに追加しました');
+  } else if (e.target.closest('[data-buy]')) {
+    showTab('trades');
+    resetTradeForm();
+    tf.side.value = 'buy';
+    tf.kind.value = x.market === 'us' ? 'us' : 'jp';
+    tf.code.value = x.code;
+    tf.sname.value = nameOf(x.code) || x.name;
+    if (x.price != null && x.market === 'jp') tf.price.value = x.price;
+    syncKindFields();
+    $('#trade-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    tf.qty.focus();
+  }
 });
 
 /* ---------- サンプル ---------- */
