@@ -191,6 +191,26 @@ td.empty { text-align: center; color: var(--muted); padding: 36px 16px; white-sp
 .price-in { width: 110px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
 .yearly { max-width: 720px; }
 
+/* ヒートマップ */
+.hm-bar { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; font-size: 12px; color: var(--muted); }
+.hm-sort { display: flex; align-items: center; gap: 8px; }
+.hm-sort select { width: auto; }
+.hm-legend { display: inline-flex; align-items: center; gap: 6px; }
+.hm-sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }
+.hm-mid { background: var(--sunken); border: 1px solid var(--line); }
+.hm-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .hm-grid { grid-template-columns: minmax(0, 1fr); } }
+.hm-sub { font-family: var(--font-body); font-weight: 400; font-size: 12px; color: var(--muted); margin-left: 6px; }
+table.hm td { padding: 7px 10px; }
+table.hm td.cell { font-family: var(--font-num); font-variant-numeric: tabular-nums; text-align: right; min-width: 64px; }
+table.hm td.sector { white-space: normal; min-width: 130px; }
+table.hm tbody tr:hover td { filter: brightness(0.97); }
+.held { font-size: 10px; padding: 0 6px; border-radius: 4px; margin-left: 6px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); white-space: nowrap; }
+.flow { font-size: 10px; font-weight: 600; padding: 0 6px; border-radius: 4px; margin-left: 6px; white-space: nowrap; border: 1px solid currentColor; }
+.flow.in { color: var(--gain); }
+.flow.out { color: var(--loss); }
+.held-names { display: block; font-size: 11px; color: var(--muted); }
+
 /* 決算予定 */
 .notice {
   display: grid;
@@ -334,6 +354,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
       <button class="tab" role="tab" data-tab="dashboard" aria-selected="true">ダッシュボード</button>
       <button class="tab" role="tab" data-tab="trades" aria-selected="false">売買履歴</button>
       <button class="tab" role="tab" data-tab="dividends" aria-selected="false">配当</button>
+      <button class="tab" role="tab" data-tab="heatmap" aria-selected="false">業種ヒートマップ</button>
       <button class="tab" role="tab" data-tab="yearly" aria-selected="false">年別損益</button>
       <button class="tab" role="tab" data-tab="data" aria-selected="false">データ</button>
     </nav>
@@ -364,7 +385,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
     <div class="legend" id="legend"></div>
 
     <h2>保有商品</h2>
-    <p class="hint">現在値の欄に最新の価格を入れると評価額が更新されます。単位は欄に表示しています（投資信託は1万口あたり、外国債券は%）。</p>
+    <p class="hint"><span id="price-updated"></span>現在値は自分で書き換えることもできます。単位は欄に表示しています（投資信託は1万口あたり、外国債券は%）。</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -505,6 +526,32 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
         <tbody id="dividends-body"></tbody>
       </table>
     </div>
+  </section>
+
+  <!-- ヒートマップ -->
+  <section class="panel" id="tab-heatmap" hidden>
+    <h2>業種ヒートマップ</h2>
+    <p class="hint">どの業種にお金が流れているかを、期間ごとの値動きで見る表です。赤は上昇、緑は下落、色が濃いほど大きく動いています。「出来高」は直近5日の売買量が、その前の20日の平均の何倍かです。</p>
+    <div class="hm-bar">
+      <label class="hm-sort">並べ替え
+        <select id="hm-sort">
+          <option value="d1">1日</option><option value="w1">1週</option><option value="m1" selected>1か月</option><option value="m3">3か月</option><option value="volRatio">出来高</option><option value="none">標準の順</option>
+        </select>
+      </label>
+      <span class="hm-legend"><i class="hm-sw" style="background:var(--loss)"></i>下落 <i class="hm-sw hm-mid"></i>横ばい <i class="hm-sw" style="background:var(--gain)"></i>上昇</span>
+      <span class="hm-legend"><span class="flow in">流入</span>上昇＋出来高増 <span class="flow out">流出</span>下落＋出来高増</span>
+    </div>
+    <div class="hm-grid">
+      <div class="stack">
+        <h2>日本株 <span class="hm-sub">TOPIX-17業種</span></h2>
+        <div class="table-wrap"><table class="hm"><thead><tr><th>業種</th><th class="r">1日</th><th class="r">1週</th><th class="r">1か月</th><th class="r">3か月</th><th class="r">出来高</th></tr></thead><tbody id="hm-jp"></tbody></table></div>
+      </div>
+      <div class="stack">
+        <h2>米国株 <span class="hm-sub">S&amp;P500 セクター</span></h2>
+        <div class="table-wrap"><table class="hm"><thead><tr><th>セクター</th><th class="r">1日</th><th class="r">1週</th><th class="r">1か月</th><th class="r">3か月</th><th class="r">出来高</th></tr></thead><tbody id="hm-us"></tbody></table></div>
+      </div>
+    </div>
+    <p class="hint" id="hm-note"></p>
   </section>
 
   <!-- 年別 -->
@@ -698,6 +745,8 @@ function render() {
   renderYearly(c);
   renderMetaInputs();
   renderEarnings();
+  renderHeatmap();
+  renderPriceUpdated();
   const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.inst), ...Object.keys(state.names)]);
   $('#code-list').innerHTML = [...codes].sort().map(k => `<option value="${esc(k)}">${esc(nameOf(k))}</option>`).join('');
   $('#sample-banner').hidden = !sampleMode;
@@ -885,11 +934,15 @@ const metaBody = () => ({
   prices: { ...state.prices }, names: { ...state.names }, inst: JSON.parse(JSON.stringify(state.inst)),
   fx: { ...state.fx }, fxAsOf: state.fxAsOf || '', cash: state.cash.map(c => ({ ...c })), opening: state.opening,
   earnings: JSON.parse(JSON.stringify(state.earnings || {})),
+  priceDates: { ...(state.priceDates || {}) }, pricesUpdatedAt: state.pricesUpdatedAt || '',
+  sectors: JSON.parse(JSON.stringify(state.sectors || {})),
 });
 const fromMeta = d => ({
   prices: { ...(d.prices || {}) }, names: { ...(d.names || {}) }, inst: { ...(d.inst || {}) },
   fx: { ...(d.fx || {}) }, fxAsOf: d.fxAsOf || '', cash: Array.isArray(d.cash) ? d.cash.map(c => ({ ...c })) : [], opening: d.opening || null,
   earnings: { ...(d.earnings || {}) },
+  priceDates: { ...(d.priceDates || {}) }, pricesUpdatedAt: d.pricesUpdatedAt || '',
+  sectors: { ...(d.sectors || {}) },
 });
 
 function makeLocalStore() {
@@ -945,6 +998,7 @@ function makeDbStore(db, id) {
   tradesCol.onSnapshot(s => { real = { ...real, trades: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
   divCol.onSnapshot(s => { real = { ...real, dividends: s.docs.map(d => ({ ...d.data(), id: d.id })) }; apply(); }, fail);
   meta.onSnapshot(s => { real = { ...real, ...fromMeta(s.exists ? s.data() : {}) }; apply(); }, fail);
+  meta.collection('market').doc('heatmap').onSnapshot(s => { heatmap = s.exists ? s.data() : null; renderHeatmap(); }, fail);
 
   // 同じドキュメントへの書き込みは1つずつ
   let metaChain = Promise.resolve();
@@ -1221,6 +1275,60 @@ function heldCodes() {
   const { holdings } = compute();
   return [...new Set(holdings.map(h => h.code))];
 }
+/* ---------- 業種ヒートマップ ---------- */
+let heatmap = null;
+const HM_SCALE = { d1: 3, w1: 6, m1: 10, m3: 15 };   // この幅で色が最も濃くなる（%）
+function hmCell(v, key) {
+  if (v === null || v === undefined) return '<td class="cell">—</td>';
+  const k = Math.min(Math.abs(v) / HM_SCALE[key], 1);
+  const pctMix = Math.round(8 + k * 52);
+  const col = v > 0 ? 'var(--gain)' : v < 0 ? 'var(--loss)' : 'var(--sunken)';
+  const bg = v === 0 ? 'var(--sunken)' : `color-mix(in srgb, ${col} ${pctMix}%, var(--surface))`;
+  return `<td class="cell" style="background:${bg}">${v > 0 ? '+' : v < 0 ? '−' : ''}${dec2.format(Math.abs(v))}%</td>`;
+}
+function renderHeatmap() {
+  const sortKey = $('#hm-sort').value;
+  const sectors = state.sectors || {};
+  const { holdings } = compute();
+  const heldBy = {};
+  for (const h of holdings) {
+    const s = sectors[h.code];
+    if (!s) continue;
+    const key = s.market + '|' + s.sector;
+    (heldBy[key] ||= new Set()).add(nameOf(h.code) || h.code);
+  }
+  for (const market of ['jp', 'us']) {
+    const body = $('#hm-' + market);
+    const rows = heatmap && Array.isArray(heatmap[market]) ? [...heatmap[market]] : [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="6" class="empty">${heatmap ? 'データがありません。' : 'データを読み込み中です。毎日自動で更新されます。'}</td></tr>`;
+      continue;
+    }
+    if (sortKey !== 'none') rows.sort((a, b) => (b[sortKey] ?? -1e9) - (a[sortKey] ?? -1e9));
+    body.innerHTML = rows.map(r => {
+      const held = heldBy[market + '|' + r.name];
+      const flow = r.volRatio >= 1.2 && r.w1 > 0 ? '<span class="flow in" title="1週で上昇し、出来高も増えています">流入</span>'
+        : r.volRatio >= 1.2 && r.w1 < 0 ? '<span class="flow out" title="1週で下落し、出来高も増えています">流出</span>' : '';
+      const vol = r.volRatio == null ? '—' : `${dec2.format(r.volRatio)}倍`;
+      return `<tr>
+        <td class="sector">${esc(r.name)}${flow}${held ? `<span class="held">保有</span><span class="held-names">${esc([...held].join('、'))}</span>` : ''}</td>
+        ${hmCell(r.d1, 'd1')}${hmCell(r.w1, 'w1')}${hmCell(r.m1, 'm1')}${hmCell(r.m3, 'm3')}
+        <td class="cell" style="${r.volRatio >= 1.2 ? 'font-weight:600;color:var(--ink)' : 'color:var(--muted)'}">${vol}</td>
+      </tr>`;
+    }).join('');
+  }
+  const jpAsOf = heatmap && heatmap.jp && heatmap.jp[0] ? heatmap.jp[0].asOf : '';
+  const usAsOf = heatmap && heatmap.us && heatmap.us[0] ? heatmap.us[0].asOf : '';
+  $('#hm-note').textContent = heatmap
+    ? `データ: 日本 ${jpAsOf}・米国 ${usAsOf} 時点（${heatmap.source || ''}、${heatmap.updatedAt || ''} 取得）。日本はTOPIX-17業種ETF（1617〜1633）、米国はセクターETF（XLKなど）の値動きです。`
+    : '';
+}
+$('#hm-sort').addEventListener('change', renderHeatmap);
+function renderPriceUpdated() {
+  const el = $('#price-updated');
+  el.textContent = state.pricesUpdatedAt ? `株価・基準価額・為替は ${state.pricesUpdatedAt} に自動更新しました（外国債券は手入力）。` : '';
+}
+
 function renderEarnings() {
   const earnings = state.earnings || {};
   const rows = Object.entries(earnings).map(([code, e]) => ({ code, e, info: dueInfo(e) }));
