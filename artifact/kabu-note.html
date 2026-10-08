@@ -191,6 +191,36 @@ td.empty { text-align: center; color: var(--muted); padding: 36px 16px; white-sp
 .price-in { width: 110px; text-align: right; font-family: var(--font-num); padding: 4px 8px; }
 .yearly { max-width: 720px; }
 
+/* 決算予定 */
+.notice {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--gain);
+  background: color-mix(in srgb, var(--gain) 8%, var(--surface));
+}
+.notice strong { color: var(--gain); font-size: 13px; }
+.notice .items { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+.notice .items b { font-family: var(--font-num); font-weight: 500; }
+.due {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.due.now { color: var(--accent-ink); background: var(--gain); border-color: var(--gain); }
+.due.soon { color: var(--gain); border-color: var(--gain); }
+.due.near { color: var(--warn); border-color: var(--warn); }
+.due.past { color: var(--muted); border-style: dashed; }
+td .due { margin-left: 8px; }
+tr.past td { color: var(--muted); }
+.status { font-size: 11px; color: var(--muted); }
+.status.fixed { color: var(--accent); }
+
 /* forms */
 form.entry {
   display: grid;
@@ -318,6 +348,10 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 
   <!-- ダッシュボード -->
   <section class="panel" id="tab-dashboard">
+    <div class="notice" id="earn-notice" hidden>
+      <strong>決算発表が近い銘柄があります</strong>
+      <div class="items" id="earn-notice-items"></div>
+    </div>
     <div class="tiles">
       <div class="tile lead"><span class="label">資産合計</span><span class="value" id="t-assets">¥0</span><span class="sub" id="t-assets-sub">保有商品 ¥0 ＋ 預り金 ¥0</span></div>
       <div class="tile"><span class="label">評価損益</span><span class="value" id="t-unreal">¥0</span><span class="sub" id="t-unreal-pct">—</span></div>
@@ -343,6 +377,28 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
         <tbody id="holdings-body"></tbody>
       </table>
     </div>
+
+    <h2>決算発表の予定</h2>
+    <p class="hint">発表日が2週間以内に近づくと、ページ上部とこの表でお知らせします。日付は情報サイトに出ている予定なので、会社の発表で変わることがあります。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>発表日</th><th>残り</th><th>コード</th><th>銘柄</th><th>内容</th><th>状態</th><th>メモ</th><th></th></tr></thead>
+        <tbody id="earn-body"></tbody>
+      </table>
+    </div>
+    <form class="entry" id="earn-form" autocomplete="off">
+      <label class="wide">銘柄<select id="ef-code" required></select></label>
+      <label>発表日<input type="date" id="ef-date"></label>
+      <label>日付未定なら月<input type="month" id="ef-month"></label>
+      <label>内容
+        <select id="ef-kind"><option>本決算</option><option>中間決算</option><option>第1四半期決算</option><option>第3四半期決算</option><option>四半期決算</option></select>
+      </label>
+      <label>状態
+        <select id="ef-status"><option>予定</option><option>確定</option></select>
+      </label>
+      <label class="wide">メモ<input type="text" id="ef-note"></label>
+      <div class="actions"><button type="submit" class="btn" id="ef-submit">決算日を保存</button></div>
+    </form>
 
     <div class="split">
       <div class="stack">
@@ -524,7 +580,7 @@ const KIND_ORDER = ['jp', 'us', 'fund', 'bond'];
 const ACCOUNTS = ['特定', '一般', 'NISA成長', 'NISAつみたて', '旧つみたてNISA'];
 
 /* ---------- 状態 ---------- */
-const emptyState = () => ({ trades: [], dividends: [], prices: {}, names: {}, inst: {}, fx: {}, fxAsOf: '', cash: [], opening: null });
+const emptyState = () => ({ trades: [], dividends: [], prices: {}, names: {}, inst: {}, fx: {}, fxAsOf: '', cash: [], opening: null, earnings: {} });
 let state = emptyState();
 let sampleMode = false;
 let savedState = null;
@@ -641,6 +697,7 @@ function render() {
   renderDividends();
   renderYearly(c);
   renderMetaInputs();
+  renderEarnings();
   const codes = new Set([...state.trades.map(t => t.code), ...Object.keys(state.inst), ...Object.keys(state.names)]);
   $('#code-list').innerHTML = [...codes].sort().map(k => `<option value="${esc(k)}">${esc(nameOf(k))}</option>`).join('');
   $('#sample-banner').hidden = !sampleMode;
@@ -702,7 +759,7 @@ function renderDashboard({ holdings, realized, cash }) {
       const ccy = instOf(h.code).ccy || k.ccy;
       return `<tr>
       <td class="mono">${esc(h.code)}</td>
-      <td class="name">${esc(nameOf(h.code))}</td>
+      <td class="name">${esc(nameOf(h.code))}${earnChip(h.code, 30)}</td>
       <td>${acctTag(h.account)}</td>
       <td class="r num">${decFmt.format(h.qty)}<span class="unit">${ccy !== 'JPY' && kind === 'bond' ? ccy : k.unit}</span></td>
       <td class="r num">${dec2.format(h.avg)}<span class="unit">${kind === 'fund' ? '円/1万口' : kind === 'bond' ? '円/額面100' : '円'}</span></td>
@@ -827,10 +884,12 @@ function renderYearly({ realized }) {
 const metaBody = () => ({
   prices: { ...state.prices }, names: { ...state.names }, inst: JSON.parse(JSON.stringify(state.inst)),
   fx: { ...state.fx }, fxAsOf: state.fxAsOf || '', cash: state.cash.map(c => ({ ...c })), opening: state.opening,
+  earnings: JSON.parse(JSON.stringify(state.earnings || {})),
 });
 const fromMeta = d => ({
   prices: { ...(d.prices || {}) }, names: { ...(d.names || {}) }, inst: { ...(d.inst || {}) },
   fx: { ...(d.fx || {}) }, fxAsOf: d.fxAsOf || '', cash: Array.isArray(d.cash) ? d.cash.map(c => ({ ...c })) : [], opening: d.opening || null,
+  earnings: { ...(d.earnings || {}) },
 });
 
 function makeLocalStore() {
@@ -1117,6 +1176,111 @@ $('#dividends-body').addEventListener('click', async e => {
       if (await guard(() => store.delDiv(del))) toast('削除しました');
     }
   }
+});
+
+/* ---------- 決算予定 ---------- */
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+function daysUntil(e) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  let d;
+  if (e.date) d = new Date(e.date + 'T00:00:00');
+  else if (e.month) d = new Date(e.month + '-01T00:00:00');
+  else return null;
+  return Math.round((d - t) / 86400000);
+}
+function earnDateText(e) {
+  if (e.date) { const d = new Date(e.date + 'T00:00:00'); return `${d.getMonth() + 1}/${d.getDate()}（${WD[d.getDay()]}）`; }
+  if (e.month) return `${Number(e.month.slice(5))}月（日付未定）`;
+  return '未定';
+}
+function dueInfo(e) {
+  const n = daysUntil(e);
+  if (n === null) return { cls: '', text: '未定', n };
+  if (!e.date && e.month) {
+    // 月だけ分かっている場合は、その月に入ったら「今月」
+    const t = new Date();
+    const ym = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`;
+    if (e.month === ym) return { cls: 'soon', text: '今月', n: 0 };
+    if (e.month < ym) return { cls: 'past', text: '発表済み？', n: -1 };
+    return { cls: n <= 14 ? 'near' : '', text: `約${n}日後`, n };
+  }
+  if (n < 0) return { cls: 'past', text: '発表済み', n };
+  if (n === 0) return { cls: 'now', text: '今日', n };
+  if (n <= 7) return { cls: 'soon', text: `あと${n}日`, n };
+  if (n <= 14) return { cls: 'near', text: `あと${n}日`, n };
+  return { cls: '', text: `あと${n}日`, n };
+}
+function earnChip(code, within) {
+  const e = (state.earnings || {})[code];
+  if (!e) return '';
+  const info = dueInfo(e);
+  if (info.n === null || info.n < 0 || info.n > within) return '';
+  return `<span class="due ${info.cls}" title="${esc(e.kind || '決算')} ${esc(earnDateText(e))}">決算 ${esc(info.text)}</span>`;
+}
+function heldCodes() {
+  const { holdings } = compute();
+  return [...new Set(holdings.map(h => h.code))];
+}
+function renderEarnings() {
+  const earnings = state.earnings || {};
+  const rows = Object.entries(earnings).map(([code, e]) => ({ code, e, info: dueInfo(e) }));
+  // 近い順。発表済みは下へ
+  rows.sort((a, b) => {
+    const pa = a.info.n === null ? 1e9 : a.info.n < 0 ? 1e8 - a.info.n : a.info.n;
+    const pb = b.info.n === null ? 1e9 : b.info.n < 0 ? 1e8 - b.info.n : b.info.n;
+    return pa - pb;
+  });
+  const body = $('#earn-body');
+  body.innerHTML = rows.length ? rows.map(({ code, e, info }) => `<tr class="${info.cls === 'past' ? 'past' : ''}">
+      <td class="mono">${esc(earnDateText(e))}</td>
+      <td><span class="due ${info.cls}">${esc(info.text)}</span></td>
+      <td class="mono">${esc(code)}</td>
+      <td class="name">${esc(nameOf(code))}</td>
+      <td>${esc(e.kind || '')}</td>
+      <td><span class="status ${e.status === '確定' ? 'fixed' : ''}">${esc(e.status || '予定')}</span></td>
+      <td class="memo">${esc(e.note || '')}</td>
+      <td><button class="link" data-edit-earn="${esc(code)}">編集</button><button class="link del" data-del-earn="${esc(code)}">削除</button></td>
+    </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">決算日はまだ登録されていません。下のフォームから追加できます。</td></tr>';
+
+  // 2週間以内のお知らせ
+  const near = rows.filter(r => r.info.n !== null && r.info.n >= 0 && r.info.n <= 14 && r.info.cls !== '');
+  $('#earn-notice').hidden = !near.length;
+  $('#earn-notice-items').innerHTML = near.map(({ code, e, info }) =>
+    `<span>${esc(nameOf(code) || code)} <b>${esc(earnDateText(e))}</b> ${esc(e.kind || '')} <span class="due ${info.cls}">${esc(info.text)}</span></span>`).join('');
+  document.title = near.length ? `(${near.length}) 株ノート` : '株ノート';
+
+  // 入力欄の銘柄リスト（保有中の個別株と、登録済みの銘柄）
+  const sel = $('#ef-code');
+  const current = sel.value;
+  const codes = [...new Set([...heldCodes().filter(c => ['jp', 'us'].includes(kindOf(c))), ...Object.keys(earnings)])];
+  sel.innerHTML = codes.map(c => `<option value="${esc(c)}">${esc(c)} ${esc(nameOf(c))}</option>`).join('');
+  if (codes.includes(current)) sel.value = current;
+}
+$('#earn-body').addEventListener('click', async e => {
+  const ed = e.target.dataset.editEarn, del = e.target.dataset.delEarn;
+  if (ed) {
+    const x = state.earnings[ed];
+    $('#ef-code').value = ed; $('#ef-date').value = x.date || ''; $('#ef-month').value = x.month || '';
+    $('#ef-kind').value = x.kind || '本決算'; $('#ef-status').value = x.status || '予定'; $('#ef-note').value = x.note || '';
+    $('#earn-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (del) {
+    if (!await ask(`${nameOf(del) || del} の決算日を削除しますか？`)) return;
+    delete state.earnings[del];
+    render();
+    guard(() => store.putMeta());
+  }
+});
+$('#earn-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = $('#ef-code').value;
+  const date = $('#ef-date').value, month = $('#ef-month').value;
+  if (!code) return;
+  if (!date && !month) { toast('発表日か、日付未定なら月を入れてください。'); return; }
+  if (sampleMode) { toast('サンプル表示中は保存できません。'); return; }
+  state.earnings = { ...(state.earnings || {}), [code]: { date: date || '', month: date ? '' : month, kind: $('#ef-kind').value, status: $('#ef-status').value, note: $('#ef-note').value.trim() } };
+  render();
+  if (await guard(() => store.putMeta())) { $('#earn-form').reset(); toast('決算日を保存しました'); }
 });
 
 /* ---------- サンプル ---------- */
