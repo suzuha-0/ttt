@@ -3,8 +3,9 @@
 
 Yahoo!ファイナンスから
   - 保有銘柄の現在値（国内株・米国株・投資信託）と為替
-  - 日本（TOPIX-17業種ETF）と米国（セクターETF）の業種別騰落率・出来高
+  - 業種ヒートマップ（日本: 東証33業種、米国: 25業種）と、業種ごとの代表20社の値動き
 を取得し、株ノートのデータベースにそのまま書き込める JSON を出力する。
+業種ごとの代表20社は tools/universe.json（tools/build_universe.py で作成）を使う。
 
 使い方:
   python3 tools/fetch_market.py <portfolio_main.json> <出力ディレクトリ>
@@ -13,18 +14,23 @@ portfolio_main.json は ArtifactData で portfolio/main を取得したもの
 （{"data": {...}} でも中身だけでもよい）。出力ディレクトリには
   prices-update.json   … portfolio/main への update 用
   heatmap.json         … portfolio/main/market/heatmap への set 用
+  members-jp.json      … portfolio/main/market/members-jp への set 用
+  members-us.json      … portfolio/main/market/members-us への set 用
 を書き出す。
 """
 import json
+import os
 import re
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
 JST = timezone(timedelta(hours=9))
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 # 投資信託: 株ノートのコード -> Yahoo!ファイナンスのファンドコード
 FUND_CODES = {
@@ -34,57 +40,24 @@ FUND_CODES = {
     "rakuten-VT": "9I311179",
     "rakuten-VTI": "9I312179",
 }
-
-# TOPIX-17業種 ETF（NEXT FUNDS）
-JP_SECTORS = [
-    ("1617.T", "食品"), ("1618.T", "エネルギー資源"), ("1619.T", "建設・資材"),
-    ("1620.T", "素材・化学"), ("1621.T", "医薬品"), ("1622.T", "自動車・輸送機"),
-    ("1623.T", "鉄鋼・非鉄"), ("1624.T", "機械"), ("1625.T", "電機・精密"),
-    ("1626.T", "情報通信・サービスその他"), ("1627.T", "電力・ガス"),
-    ("1628.T", "運輸・物流"), ("1629.T", "商社・卸売"), ("1630.T", "小売"),
-    ("1631.T", "銀行"), ("1632.T", "金融（除く銀行）"), ("1633.T", "不動産"),
-]
-# 東証33業種 -> TOPIX-17業種
-TSE33_TO_17 = {
-    "水産・農林業": "食品", "食料品": "食品",
-    "鉱業": "エネルギー資源", "石油・石炭製品": "エネルギー資源",
-    "建設業": "建設・資材", "ガラス・土石製品": "建設・資材", "金属製品": "建設・資材",
-    "繊維製品": "素材・化学", "パルプ・紙": "素材・化学", "化学": "素材・化学",
-    "医薬品": "医薬品",
-    "ゴム製品": "自動車・輸送機", "輸送用機器": "自動車・輸送機",
-    "鉄鋼": "鉄鋼・非鉄", "非鉄金属": "鉄鋼・非鉄",
-    "機械": "機械",
-    "電気機器": "電機・精密", "精密機器": "電機・精密",
-    "情報・通信業": "情報通信・サービスその他", "サービス業": "情報通信・サービスその他",
-    "その他製品": "情報通信・サービスその他",
-    "電気・ガス業": "電力・ガス",
-    "陸運業": "運輸・物流", "海運業": "運輸・物流", "空運業": "運輸・物流",
-    "倉庫・運輸関連業": "運輸・物流",
-    "卸売業": "商社・卸売", "小売業": "小売", "銀行業": "銀行",
-    "証券、商品先物取引業": "金融（除く銀行）", "保険業": "金融（除く銀行）",
-    "その他金融業": "金融（除く銀行）", "不動産業": "不動産",
-}
-# 米国セクターETF（Select Sector SPDR）
-US_SECTORS = [
-    ("XLK", "情報技術"), ("XLC", "コミュニケーション"), ("XLY", "一般消費財"),
-    ("XLP", "生活必需品"), ("XLV", "ヘルスケア"), ("XLF", "金融"),
-    ("XLI", "資本財"), ("XLE", "エネルギー"), ("XLB", "素材"),
-    ("XLU", "公益"), ("XLRE", "不動産"),
-]
-# 米国の保有銘柄のセクター（Yahooのチャートデータには業種がないため手動）
-US_HOLDING_SECTOR = {"SPCX": "資本財"}
+# 米国の保有銘柄の業種（universe.json の米国業種名）
+US_HOLDING_SECTOR = {"SPCX": "航空宇宙・防衛"}
 
 
 def get(url):
-    for attempt in range(4):
+    for attempt in range(5):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=30) as r:
                 return r.read().decode("utf-8")
-        except Exception as e:  # 429などは少し待って再試行
-            if attempt == 3:
+        except Exception:  # 429などは少し待って再試行
+            if attempt == 4:
                 raise
             time.sleep(2 ** (attempt + 1))
+
+
+def jst_date(ts):
+    return datetime.fromtimestamp(ts, JST).strftime("%Y-%m-%d")
 
 
 def chart(symbol, rng="6mo"):
@@ -119,23 +92,37 @@ def fund_price(fund_code):
     return float(m.group(1).replace(",", "")), m.group(2)
 
 
-def jst_date(ts):
-    return datetime.fromtimestamp(ts, JST).strftime("%Y-%m-%d")
-
-
 def perf(rows):
+    """終値の騰落率（1日・1週・1か月・3か月）と売買代金（直近5日・その前20日の1日平均）。"""
     closes = [c for _, c, _ in rows]
-    vols = [v or 0 for _, _, v in rows]
+    value = [c * (v or 0) for _, c, v in rows]
     last = closes[-1]
 
     def ret(n):
-        return round((last / closes[-1 - n] - 1) * 100, 2) if len(closes) > n else None
+        return round((last / closes[-1 - n] - 1) * 100, 2) if len(closes) > n and closes[-1 - n] else None
 
-    recent = vols[-5:]
-    base = vols[-25:-5]
-    vol_ratio = round((sum(recent) / len(recent)) / (sum(base) / len(base)), 2) if base and sum(base) else None
-    return {"last": last, "d1": ret(1), "w1": ret(5), "m1": ret(21), "m3": ret(63), "volRatio": vol_ratio,
-            "asOf": jst_date(rows[-1][0])}
+    v5 = sum(value[-5:]) / len(value[-5:])
+    base = value[-25:-5]
+    v20 = sum(base) / len(base) if base else 0
+    return {"last": last, "d1": ret(1), "w1": ret(5), "m1": ret(21), "m3": ret(63),
+            "vr": round(v5 / v20, 2) if v20 else None, "v5": v5, "v20": v20, "asOf": jst_date(rows[-1][0])}
+
+
+def safe_perf(sym):
+    try:
+        return sym, perf(chart(sym)[1])
+    except Exception as e:
+        return sym, {"error": str(e)}
+
+
+def short_name(name):
+    return re.sub(r"[（(]株[）)]|株式会社|\s+$", "", name).replace("　", " ").strip()
+
+
+def weighted(members, key, weight):
+    pts = [(m[key], weight(m)) for m in members if m.get(key) is not None and weight(m)]
+    tw = sum(w for _, w in pts)
+    return round(sum(v * w for v, w in pts) / tw, 2) if tw else None
 
 
 def main():
@@ -143,22 +130,24 @@ def main():
     main_doc = json.load(open(src, encoding="utf-8"))
     main_doc = main_doc.get("data", main_doc)
     inst = main_doc.get("inst", {})
+    universe = json.load(open(os.path.join(HERE, "universe.json"), encoding="utf-8"))
+    jp_sector_names = {s["sector"].rstrip("業"): s["sector"] for s in universe["jp"]}
 
+    # ---- 保有銘柄の現在値 ----
     prices, price_dates, errors, sectors = {}, {}, [], {}
     for code, info in sorted(inst.items()):
         kind = info.get("kind")
         try:
             if kind == "jp":
-                meta, rows = chart(f"{code}.T", "5d")
+                meta, _ = chart(f"{code}.T", "5d")
                 prices[code] = meta["regularMarketPrice"]
                 price_dates[code] = jst_date(meta["regularMarketTime"])
                 ind = stock_page(code)
                 # 表記ゆれ（「情報・通信」と「情報・通信業」など）を吸収して対応づける
-                norm = {k.rstrip("業"): v for k, v in TSE33_TO_17.items()}
-                if ind and ind.rstrip("業") in norm:
-                    sectors[code] = {"market": "jp", "sector": norm[ind.rstrip("業")], "tse33": ind}
+                if ind and ind.rstrip("業") in jp_sector_names:
+                    sectors[code] = {"market": "jp", "sector": jp_sector_names[ind.rstrip("業")]}
             elif kind == "us":
-                meta, rows = chart(code, "5d")
+                meta, _ = chart(code, "5d")
                 prices[code] = meta["regularMarketPrice"]
                 price_dates[code] = datetime.fromtimestamp(meta["regularMarketTime"], timezone.utc).strftime("%Y-%m-%d")
                 if code in US_HOLDING_SECTOR:
@@ -169,7 +158,7 @@ def main():
                 price_dates[code] = d
         except Exception as e:
             errors.append(f"{code}: {e}")
-        time.sleep(0.5)
+        time.sleep(0.3)
 
     fx = {}
     for ccy, sym in (("USD", "JPY=X"), ("EUR", "EURJPY=X")):
@@ -179,15 +168,49 @@ def main():
         except Exception as e:
             errors.append(f"{ccy}: {e}")
 
+    # ---- 業種ヒートマップ ----
+    syms = {f"{m['code']}.T" for s in universe["jp"] for m in s["members"]}
+    syms |= {m["code"] for s in universe["us"] for m in s["members"]}
+    syms |= {s["etf"] for s in universe["us"]}
+    with ThreadPoolExecutor(6) as ex:
+        data = dict(ex.map(safe_perf, sorted(syms)))
+    failed = sorted(s for s, p in data.items() if "error" in p)
+    if failed:
+        errors.append(f"取得できなかった銘柄 {len(failed)}件: {' '.join(failed[:20])}")
+
     heat = {"jp": [], "us": []}
-    for market, items in (("jp", JP_SECTORS), ("us", US_SECTORS)):
-        for sym, name in items:
-            try:
-                _, rows = chart(sym)
-                heat[market].append({"symbol": sym.replace(".T", ""), "name": name, **perf(rows)})
-            except Exception as e:
-                errors.append(f"{sym}: {e}")
-            time.sleep(0.3)
+    members = {"jp": {}, "us": {}}
+    for market in ("jp", "us"):
+        for s in universe[market]:
+            rows = []
+            for m in s["members"]:
+                p = data.get(f"{m['code']}.T" if market == "jp" else m["code"])
+                if not p or "error" in p:
+                    continue
+                rows.append({"code": m["code"], "name": short_name(m["name"]), "cap": m.get("cap"),
+                             **{k: p[k] for k in ("last", "d1", "w1", "m1", "m3", "vr", "v5", "v20")}})
+            if not rows:
+                continue
+            v5, v20 = sum(r["v5"] for r in rows), sum(r["v20"] for r in rows)
+            row = {"name": s["sector"], "count": len(rows), "vr": round(v5 / v20, 2) if v20 else None}
+            if market == "jp":
+                # 日本: 代表20社の時価総額加重平均
+                for k in ("d1", "w1", "m1", "m3"):
+                    row[k] = weighted(rows, k, lambda r: r.get("cap"))
+                row["asOf"] = data[f"{s['members'][0]['code']}.T"].get("asOf")
+                row["basis"] = "代表20社の時価総額加重"
+            else:
+                # 米国: 業種ETFの値動き
+                e = data.get(s["etf"], {})
+                for k in ("d1", "w1", "m1", "m3"):
+                    row[k] = e.get(k)
+                row["asOf"] = e.get("asOf")
+                row["etf"] = s["etf"]
+                row["basis"] = f"ETF {s['etf']}"
+            heat[market].append(row)
+            members[market][s["sector"]] = [
+                {k: (round(r[k], 2) if isinstance(r[k], float) else r[k]) for k in ("code", "name", "last", "d1", "w1", "m1", "m3", "vr")}
+                for r in rows]
 
     now = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
     update = {
@@ -199,8 +222,11 @@ def main():
         "sectors": sectors,
     }
     heatmap = {"updatedAt": now, "source": "Yahoo!ファイナンス", **heat}
-    json.dump(update, open(f"{out}/prices-update.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    json.dump(heatmap, open(f"{out}/heatmap.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    dump = lambda name, obj: json.dump(obj, open(f"{out}/{name}", "w", encoding="utf-8"), ensure_ascii=False)
+    dump("prices-update.json", update)
+    dump("heatmap.json", heatmap)
+    dump("members-jp.json", {"updatedAt": now, "sectors": members["jp"]})
+    dump("members-us.json", {"updatedAt": now, "sectors": members["us"]})
     print(json.dumps({"prices": len(prices), "fx": fx, "heat_jp": len(heat["jp"]), "heat_us": len(heat["us"]),
                       "errors": errors}, ensure_ascii=False))
 
